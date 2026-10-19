@@ -1,0 +1,1517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Parity — Access Reconciliation</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 28'%3E%3Cdefs%3E%3CclipPath id='c'%3E%3Ccircle cx='10.5' cy='14' r='9'/%3E%3C/clipPath%3E%3C/defs%3E%3Ccircle cx='10.5' cy='14' r='9' fill='%23183B5B'/%3E%3Ccircle cx='17.5' cy='14' r='9' fill='%230F766E'/%3E%3Ccircle cx='17.5' cy='14' r='9' fill='%236FD3C5' clip-path='url(%23c)'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #F6F8FB;
+    --surface: #FFFFFF;
+    --surface-subtle: #F9FBFD;
+    --surface-hover: #F3F7FB;
+
+    --text: #0F172A;
+    --text-secondary: #475569;
+    --text-subtle: #64748B;
+    --text-muted: #94A3B8;
+
+    --border: #E5EAF0;
+    --border-strong: #D4DCE6;
+    --hairline: rgba(15, 23, 42, 0.06);
+
+    --primary: #163B63;
+    --primary-hover: #102E4D;
+    --primary-soft: #EDF4FA;
+
+    --accent: #0F8A83;
+    --accent-ink: #0B7069;
+    --accent-soft: #ECF8F6;
+    --accent-line: #BFE5E0;
+
+    --success: #16803D;
+    --success-soft: #EEF9F1;
+    --success-line: #CDE8D6;
+
+    --warning: #C15A08;
+    --warning-ink: #A64B05;
+    --warning-soft: #FFF7EB;
+    --warning-line: #F3DDB9;
+
+    --danger: #B42318;
+    --danger-soft: #FEF3F2;
+    --danger-line: #F6CFCB;
+
+    --purple: #6D3FE0;
+    --purple-soft: #F4F0FF;
+    --purple-line: #DDD2FA;
+
+    --info: #2563EB;
+    --info-soft: #EFF6FF;
+    --info-line: #CFE0FB;
+
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 14px;
+
+    --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
+    --shadow-card: 0 4px 14px rgba(15, 23, 42, 0.04);
+
+    --font-ui: "IBM Plex Sans", -apple-system, "Segoe UI", sans-serif;
+    --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+    --ease: 150ms ease;
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+  body { margin: 0; font-family: var(--font-ui); background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+  a { color: var(--accent-ink); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  button, input, select { font-family: inherit; font-size: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--info); outline-offset: 2px; }
+  h1, h2, h3, h4 { margin: 0; font-weight: 600; letter-spacing: -0.01em; }
+  p { margin: 0; }
+  table { border-collapse: collapse; width: 100%; }
+  .mono { font-family: var(--font-mono); }
+  .muted { color: var(--text-secondary); }
+  .faint { color: var(--text-subtle); }
+  svg { flex: none; }
+
+  /* ---------- Application shell ---------- */
+  #app { min-height: 100%; }
+  .shell { display: grid; grid-template-columns: 228px 1fr; min-height: 100vh; }
+  .sidebar { background: var(--surface); border-right: 1px solid var(--border); padding: 24px 14px 18px 14px; display: flex; flex-direction: column; gap: 30px; position: sticky; top: 0; height: 100vh; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 0 10px; }
+  .brand-name { font-weight: 600; font-size: 17px; letter-spacing: -0.02em; }
+  .brand-desc { font-size: 11.5px; color: var(--text-subtle); margin-top: -2px; }
+  .nav-section { display: flex; flex-direction: column; gap: 2px; }
+  .nav-label { font-size: 10.5px; color: var(--text-subtle); padding: 0 10px; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.09em; font-weight: 600; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; color: var(--text-secondary); font-weight: 500; font-size: 13.5px; transition: all 150ms ease; }
+  .nav-item svg { color: var(--text-subtle); transition: all 150ms ease; }
+  .nav-item:hover { background: var(--surface-hover); color: var(--text); text-decoration: none; }
+  .nav-item.active { background: var(--primary-soft); color: var(--primary); font-weight: 600; }
+  .nav-item.active svg { color: var(--primary); }
+  .sidebar-foot { margin-top: auto; padding: 14px 10px 0 10px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-subtle); line-height: 1.5; }
+  .sidebar-foot .foot-title { display: flex; align-items: center; gap: 7px; font-weight: 600; color: var(--text-secondary); margin-bottom: 2px; }
+  .live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); display: inline-block; }
+  .mobile-nav { display: none; background: var(--surface); border-bottom: 1px solid var(--border); padding: 10px 16px; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 20; }
+  .mobile-nav select { border: 1px solid var(--border-strong); border-radius: 8px; padding: 6px 8px; background: var(--surface); width: auto; }
+  @media (max-width: 860px) { .shell { grid-template-columns: 1fr; } .sidebar { display: none; } .mobile-nav { display: flex; } }
+
+  .main { min-width: 0; }
+  .topbar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 22px 32px 20px 32px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .crumb { font-size: 12.5px; color: var(--text-subtle); margin-bottom: 6px; }
+  .crumb a { color: var(--text-subtle); }
+  .crumb a:hover { color: var(--text); text-decoration: none; }
+  .page-title { font-size: 24px; font-weight: 600; letter-spacing: -0.025em; line-height: 1.2; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .page-sub { font-size: 13px; color: var(--text-secondary); margin-top: 6px; }
+  .content { padding: 28px 32px 56px; max-width: 1440px; }
+  .content-narrow { max-width: 880px; }
+  @media (max-width: 640px) { .topbar, .content { padding-left: 16px; padding-right: 16px; } .page-title { font-size: 21px; } }
+
+  /* ---------- Buttons ---------- */
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 9px 15px; border-radius: 8px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text); font-weight: 500; font-size: 13.5px; cursor: pointer; line-height: 1.2; white-space: nowrap; box-shadow: var(--shadow-sm); transition: all 150ms ease; }
+  .btn:hover { background: var(--surface-hover); border-color: var(--text-muted); text-decoration: none; }
+  .btn-primary { background: var(--primary); border: none; padding: 10px 16px; color: #fff; }
+  .btn-primary:hover { background: var(--primary-hover); border: none; transform: translateY(-1px); box-shadow: var(--shadow-card); }
+  .btn-quiet { border-color: transparent; background: transparent; box-shadow: none; color: var(--text-secondary); }
+  .btn-quiet:hover { background: var(--surface-hover); border-color: transparent; color: var(--text); }
+  .btn-danger { color: var(--danger); border-color: var(--danger-line); background: var(--danger-soft); box-shadow: none; }
+  .btn-danger:hover { background: #FCE8E6; border-color: var(--danger-line); }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; box-shadow: var(--shadow-sm); }
+  .btn-sm { height: 32px; padding: 0 12px; font-size: 12.5px; }
+  .btn-primary.btn-sm { padding: 0 13px; }
+  .btn-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .copy-btn { border: 1px solid var(--border); background: var(--surface); border-radius: 6px; padding: 1px 7px; font-size: 11px; font-weight: 500; color: var(--text-secondary); cursor: pointer; transition: all 150ms ease; }
+  .copy-btn:hover { background: var(--surface-hover); border-color: var(--border-strong); }
+
+  /* ---------- Surfaces and sections ---------- */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 22px 24px; box-shadow: var(--shadow-sm); }
+  .card + .card { margin-top: 16px; }
+  .card-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 14px; }
+  .surface { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow-sm); overflow: hidden; }
+  .section { margin-top: 32px; }
+  .section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+  .section-title { font-size: 14px; font-weight: 600; }
+  .section-sub { font-size: 13px; color: var(--text-secondary); margin-top: 2px; }
+
+  /* ---------- Metrics ---------- */
+  .metric-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+  @media (max-width: 900px) { .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 520px) { .metric-grid { grid-template-columns: minmax(0, 1fr); } }
+  .metric-grid-auto { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 16px; }
+  .metric { position: relative; overflow: hidden; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; min-height: 104px; box-shadow: var(--shadow-sm); transition: all 150ms ease; }
+  .metric:hover { transform: translateY(-1px); box-shadow: var(--shadow-card); }
+  .metric::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 3px; background: transparent; }
+  .metric .m-label { font-size: 12px; color: var(--text-secondary); margin-bottom: 10px; font-weight: 600; }
+  .metric .m-value { font-family: var(--font-mono); font-size: 28px; font-weight: 600; letter-spacing: -0.03em; line-height: 1.1; color: var(--text); }
+  .metric .m-hint { font-size: 11.5px; color: var(--text-subtle); margin-top: 8px; }
+  .metric.tone-success::before { background: var(--success); }
+  .metric.tone-warning::before { background: var(--warning); }
+  .metric.tone-purple::before { background: var(--purple); }
+  .metric.tone-accent::before { background: var(--accent); }
+
+  /* ---------- Badges ---------- */
+  .badge { display: inline-flex; align-items: center; gap: 6px; padding: 2px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 600; border: 1px solid transparent; white-space: nowrap; line-height: 1.5; }
+  .badge .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .badge-success { background: var(--success-soft); color: var(--success); border-color: var(--success-line); }
+  .badge-warning { background: var(--warning-soft); color: var(--warning-ink); border-color: var(--warning-line); }
+  .badge-purple { background: var(--purple-soft); color: var(--purple); border-color: var(--purple-line); }
+  .badge-info { background: var(--info-soft); color: var(--info); border-color: var(--info-line); }
+  .badge-neutral { background: var(--surface-subtle); color: var(--text-secondary); border-color: var(--border); }
+  .tag-demo { font-size: 10.5px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--primary); background: var(--primary-soft); border-radius: 5px; padding: 2px 7px; }
+
+  /* ---------- Status banner ---------- */
+  .status-banner { display: flex; gap: 16px; align-items: flex-start; padding: 20px 24px; border-radius: 12px; border: 1px solid; margin-bottom: 20px; }
+  .status-banner .sb-icon { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+  .status-banner .sb-icon svg { width: 18px; height: 18px; }
+  .status-banner .sb-title { font-size: 17px; font-weight: 600; letter-spacing: -0.015em; line-height: 1.3; margin-top: 3px; color: var(--text); }
+  .status-banner .sb-body { font-size: 13.5px; font-weight: 400; color: var(--text-secondary); margin-top: 2px; }
+  .status-banner .sb-note { font-size: 13px; font-weight: 400; color: var(--text-secondary); margin-top: 14px; line-height: 1.6; }
+  .status-banner.in { background: var(--success-soft); border-color: var(--success-line); }
+  .status-banner.in .sb-icon { background: rgba(22, 128, 61, 0.12); color: var(--success); }
+  .status-banner.out { background: var(--warning-soft); border-color: var(--warning-line); }
+  .status-banner.out .sb-icon { background: rgba(193, 90, 8, 0.13); color: var(--warning); }
+
+  /* ---------- Tables ---------- */
+  .table-wrap { overflow: auto; max-height: 560px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+  .table-wrap.flat { border: none; border-top: 1px solid var(--border); border-radius: 0; }
+  .table-wrap.no-max { max-height: none; }
+  .table-wrap table.data { min-width: 720px; }
+  table.data th { text-align: left; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-subtle); font-weight: 600; padding: 11px 20px; border-bottom: 1px solid var(--border); background: var(--surface-subtle); white-space: nowrap; position: sticky; top: 0; z-index: 1; }
+  table.data td { padding: 9px 20px; height: 46px; border-bottom: 1px solid var(--hairline); vertical-align: middle; font-size: 13px; }
+  table.data tbody tr { transition: background 150ms ease; }
+  table.data tbody tr:hover { background: var(--surface-hover); }
+  table.data tbody tr:last-child td { border-bottom: none; }
+  .cell-detail { display: block; font-size: 11.5px; color: var(--text-subtle); margin-top: 1px; font-family: var(--font-mono); }
+  .table-empty { padding: 44px 20px; text-align: center; color: var(--text-subtle); }
+  .dup-count { color: var(--purple); font-weight: 500; }
+
+  /* ---------- Forms ---------- */
+  label.field-label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+  .field-hint { font-size: 12.5px; color: var(--text-subtle); margin-top: 6px; line-height: 1.5; }
+  input[type=text], input[type=search], select { width: 100%; height: 36px; padding: 0 12px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--surface); transition: all 150ms ease; }
+  input[type=text]:focus, input[type=search]:focus, select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(22, 59, 99, 0.12); }
+  select:disabled { background: var(--surface-subtle); color: var(--text-muted); }
+  input::placeholder { color: var(--text-muted); }
+  .field { margin-bottom: 18px; }
+  .form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; }
+  @media (max-width: 700px) { .form-grid-2 { grid-template-columns: 1fr; gap: 24px; } }
+  .option-list { border-top: 1px solid var(--hairline); }
+  .checkbox-row { display: flex; align-items: flex-start; gap: 12px; padding: 13px 0; border-bottom: 1px solid var(--hairline); }
+  .checkbox-row input { margin-top: 3px; flex: none; width: 16px; height: 16px; accent-color: var(--primary); }
+  .checkbox-row label { cursor: pointer; }
+  .checkbox-row.disabled label { cursor: not-allowed; opacity: 0.6; }
+  .cb-title { font-weight: 500; font-size: 13.5px; }
+  .cb-desc { font-size: 12.5px; color: var(--text-secondary); margin-top: 1px; }
+  .req-mark { color: var(--danger); }
+  .miss-hint { font-size: 12px; color: var(--danger); margin-top: 5px; }
+  .step-h { font-size: 14px; font-weight: 600; margin: 30px 0 4px 0; }
+
+  /* ---------- Wizard stepper ---------- */
+  .progress { display: flex; align-items: center; margin-bottom: 26px; flex-wrap: wrap; row-gap: 8px; }
+  .p-step { display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 500; color: var(--text-subtle); white-space: nowrap; }
+  .p-dot { width: 16px; height: 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1.5px solid var(--border-strong); background: var(--surface); color: #fff; transition: all 150ms ease; }
+  .p-step.done { color: var(--text-secondary); }
+  .p-step.done .p-dot { background: var(--accent); border-color: var(--accent); }
+  .p-step.current { color: var(--text); font-weight: 600; }
+  .p-step.current .p-dot { background: var(--primary); border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-soft); }
+  .p-line { flex: 1 1 20px; min-width: 14px; max-width: 64px; height: 1px; background: var(--border-strong); margin: 0 12px; }
+  .p-line.done { background: var(--accent); }
+  .wizard-actions { display: flex; justify-content: space-between; margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--hairline); }
+
+  /* ---------- Application profile cards ---------- */
+  .profile-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 12px; }
+  .profile-card { position: relative; display: block; width: 100%; text-align: left; font: inherit; color: inherit; border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; background: var(--surface); cursor: pointer; box-shadow: var(--shadow-sm); transition: all 150ms ease; }
+  .profile-card:hover { transform: translateY(-1px); border-color: var(--border-strong); box-shadow: var(--shadow-card); text-decoration: none; }
+  .profile-card.selected { border-color: #9BBBD9; background: var(--primary-soft); }
+  .profile-card.action { border-style: dashed; border-color: var(--border-strong); background: transparent; box-shadow: none; }
+  .profile-card.action:hover { background: var(--surface-hover); }
+  .profile-card.action.selected { border-style: solid; border-color: #9BBBD9; background: var(--primary-soft); }
+  .profile-card .pc-name { font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 6px; padding-right: 22px; }
+  .profile-card .pc-plat { font-size: 13px; color: var(--text-secondary); margin-top: 1px; }
+  .profile-card .pc-key { font-family: var(--font-mono); font-size: 11.5px; color: var(--text-secondary); margin-top: 12px; }
+  .profile-card .pc-last { font-size: 12px; color: var(--text-subtle); margin-top: 2px; }
+  .pc-check { position: absolute; top: 13px; right: 13px; width: 18px; height: 18px; border-radius: 50%; background: var(--primary); color: #fff; display: flex; align-items: center; justify-content: center; }
+
+  /* ---------- Upload ---------- */
+  .dropzone { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 200px; padding: 36px 24px; text-align: center; border: 1.5px dashed #B7CCE3; border-radius: 12px; background: #F5F9FE; color: var(--text-secondary); cursor: pointer; transition: all 150ms ease; }
+  .dropzone:hover, .dropzone.drag { border-color: var(--primary); background: #EEF5FC; }
+  .dropzone svg { flex: none; width: 52px; height: 52px; padding: 14px; border-radius: 50%; background: var(--surface); color: var(--primary); box-shadow: var(--shadow-card); margin-bottom: 6px; }
+  .dropzone input[type="file"] { display: none; }
+  .dropzone .dz-main { font-weight: 600; font-size: 14.5px; color: var(--text); }
+  .dropzone .dz-sub { font-size: 13px; }
+  .dropzone .dz-note { font-size: 12px; color: var(--text-subtle); margin-top: 8px; }
+  .file-card { display: flex; align-items: center; gap: 14px; padding: 16px 18px; border: 1px solid var(--border); background: var(--surface); border-radius: 12px; box-shadow: var(--shadow-sm); }
+  .file-card .fc-icon { width: 26px; height: 26px; border-radius: 50%; background: var(--success-soft); color: var(--success); display: flex; align-items: center; justify-content: center; align-self: flex-start; margin-top: 1px; }
+  .file-card .fc-body { flex: 1; min-width: 0; }
+  .file-card .fc-name { font-weight: 600; font-family: var(--font-mono); font-size: 13.5px; word-break: break-all; }
+  .file-card .fc-meta { font-size: 13px; color: var(--text-secondary); margin-top: 2px; }
+  .file-card .fc-hash { font-size: 12.5px; color: var(--text-secondary); margin-top: 6px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .preview-scroll { overflow: auto; max-height: 300px; border: 1px solid var(--border); border-radius: 12px; }
+  .preview-scroll table.data { min-width: 560px; }
+  .divider-note { font-size: 12.5px; font-weight: 600; color: var(--text-secondary); margin: 22px 0 10px 0; }
+
+  .banner { padding: 12px 16px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface-subtle); font-size: 13px; color: var(--text-secondary); display: flex; gap: 10px; align-items: flex-start; margin-top: 14px; }
+  .banner svg { margin-top: 2px; }
+  .banner.ok { background: var(--success-soft); border-color: var(--success-line); color: var(--success); }
+  .banner.warn { background: var(--warning-soft); border-color: var(--warning-line); color: var(--warning-ink); }
+  .banner.info { background: var(--info-soft); border-color: var(--info-line); color: var(--info); }
+  .banner .b-sub { display: block; font-size: 12.5px; margin-top: 2px; opacity: 0.9; }
+
+  .mapping-col h4 { font-size: 14px; font-weight: 600; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--hairline); }
+
+  .kv-row { display: grid; grid-template-columns: 210px 1fr; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--hairline); font-size: 13.5px; }
+  .kv-row:last-child { border-bottom: none; }
+  .kv-row .k { color: var(--text-secondary); }
+  .kv-row .v { min-width: 0; word-break: break-word; }
+  .kv-section { font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-subtle); font-weight: 600; margin: 28px 0 4px 0; }
+  .hash { font-family: var(--font-mono); font-size: 12px; word-break: break-all; }
+  @media (max-width: 640px) { .kv-row { grid-template-columns: 1fr; gap: 2px; } }
+
+  /* ---------- Advanced normalization ---------- */
+  .advanced { border: 1px solid var(--border); border-radius: 12px; background: var(--surface); margin-top: 22px; }
+  .advanced summary { cursor: pointer; padding: 14px 18px; font-weight: 500; font-size: 13.5px; list-style: none; display: flex; align-items: center; gap: 8px; transition: all 150ms ease; border-radius: 12px; }
+  .advanced summary:hover { background: var(--surface-hover); }
+  .advanced summary::-webkit-details-marker { display: none; }
+  .advanced summary::before { content: ""; width: 6px; height: 6px; border-right: 1.5px solid var(--text-subtle); border-bottom: 1.5px solid var(--text-subtle); transform: rotate(-45deg); transition: transform 150ms ease; margin-right: 4px; }
+  .advanced[open] summary::before { transform: rotate(45deg); }
+  .advanced[open] summary { border-bottom: 1px solid var(--hairline); border-radius: 12px 12px 0 0; }
+  .advanced .adv-body { padding: 16px 18px 18px 18px; }
+  .advanced[open] .adv-body { animation: reveal 160ms ease; }
+  @keyframes reveal { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+  .rule-grid { display: grid; grid-template-columns: 1.3fr 1fr 1fr auto auto; gap: 10px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--hairline); }
+  .rule-grid-head { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-subtle); font-weight: 600; padding-bottom: 8px; }
+  .rule-row select, .rule-row input[type=text] { height: 32px; font-size: 13px; }
+  .rule-toggles { display: flex; gap: 12px; font-size: 12px; color: var(--text-secondary); white-space: nowrap; }
+  .rule-toggles label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
+  .rule-toggles input { accent-color: var(--primary); }
+  .rule-error { grid-column: 1 / -1; color: var(--danger); font-size: 11.5px; margin-top: -4px; }
+  .rule-error:empty { display: none; }
+  @media (max-width: 760px) { .rule-grid { grid-template-columns: 1fr; } .rule-grid-head { display: none; } }
+
+  /* ---------- Toolbar ---------- */
+  .toolbar { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; justify-content: space-between; padding: 16px 20px; }
+  .filter-group { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip-filter { height: 28px; padding: 0 11px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); font-size: 12.5px; font-weight: 500; color: var(--text-secondary); cursor: pointer; transition: all 150ms ease; }
+  .chip-filter:hover { background: var(--surface-hover); border-color: var(--border-strong); color: var(--text); }
+  .chip-filter.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+  .search-input-wrap { position: relative; min-width: 250px; }
+  .search-input-wrap input { height: 32px; padding: 0 12px 0 33px; font-size: 13px; }
+  .search-input-wrap svg { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--text-muted); }
+
+  /* ---------- Lists ---------- */
+  .list-row { display: grid; grid-template-columns: 1.7fr 0.85fr 0.85fr 0.85fr 0.65fr 1fr 16px; gap: 14px; align-items: center; padding: 15px 22px; border-bottom: 1px solid var(--hairline); color: inherit; transition: background 150ms ease; }
+  .list-row:last-child { border-bottom: none; }
+  a.list-row:hover { background: var(--surface-hover); text-decoration: none; }
+  .list-head { padding-top: 11px; padding-bottom: 11px; background: var(--surface-subtle); border-bottom: 1px solid var(--border); pointer-events: none; }
+  @media (max-width: 900px) { .list-row { grid-template-columns: 1fr; gap: 6px; } .list-head { display: none; } .list-row .chev { display: none; } }
+  .lr-name { font-weight: 600; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .lr-label { font-size: 11.5px; color: var(--text-subtle); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; margin: 0; }
+  .chev { color: var(--text-muted); }
+  .empty-state { text-align: center; padding: 60px 20px; }
+  .empty-state h3 { font-size: 16px; margin-bottom: 6px; }
+  .empty-state p { color: var(--text-secondary); max-width: 44ch; margin: 0 auto 20px auto; }
+
+  .trend-chain { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-family: var(--font-mono); font-size: 13px; }
+  .trend-node { padding: 3px 11px; border-radius: 8px; background: var(--surface-subtle); border: 1px solid var(--border); font-weight: 600; }
+  .trend-node.zero { background: var(--success-soft); color: var(--success); border-color: var(--success-line); }
+  .trend-arrow { color: var(--text-muted); }
+
+  .tree { margin-top: 2px; }
+  .tree-cycle { padding: 14px 0; border-bottom: 1px solid var(--hairline); }
+  .tree-cycle:last-child { border-bottom: none; }
+  .tree-cycle-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-weight: 600; }
+  .tree-runs { margin: 10px 0 0 6px; padding-left: 16px; border-left: 2px solid var(--border); display: flex; flex-direction: column; gap: 6px; }
+  .tree-run { font-size: 13px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+
+  /* ---------- Landing ---------- */
+  .landing { background: var(--surface); min-height: 100vh; }
+  .landing-nav { display: flex; align-items: center; justify-content: space-between; padding: 18px 40px; border-bottom: 1px solid var(--border); }
+  .hero { padding: 80px 40px 56px 40px; max-width: 1120px; margin: 0 auto; display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 56px; align-items: center; }
+  @media (max-width: 880px) { .hero { grid-template-columns: 1fr; padding-top: 44px; } .landing-nav { padding: 16px 20px; } }
+  .hero h1 { font-size: 42px; line-height: 1.12; letter-spacing: -0.03em; font-weight: 600; }
+  .hero .sub { margin-top: 18px; font-size: 16.5px; color: var(--text-secondary); max-width: 46ch; line-height: 1.6; }
+  .hero .ctas { display: flex; gap: 12px; margin-top: 30px; flex-wrap: wrap; }
+  .hero .btn { padding: 11px 19px; font-size: 14px; }
+  .benefits { max-width: 1120px; margin: 0 auto; padding: 8px 40px 84px 40px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px; }
+  @media (max-width: 780px) { .benefits { grid-template-columns: 1fr; padding-left: 20px; padding-right: 20px; } }
+  .benefit { position: relative; padding-top: 18px; border-top: 1px solid var(--border); }
+  .benefit::before { content: ""; position: absolute; top: -1px; left: 0; width: 32px; height: 2px; background: var(--accent); }
+  .benefit h3 { font-size: 15px; }
+  .benefit p { font-size: 13.5px; color: var(--text-secondary); margin-top: 6px; line-height: 1.6; }
+  .privacy-strip { background: var(--surface-subtle); border-top: 1px solid var(--border); padding: 16px 32px; text-align: center; font-size: 12.5px; color: var(--text-secondary); display: flex; gap: 8px; justify-content: center; align-items: center; flex-wrap: wrap; }
+  .venn-wrap { display: flex; justify-content: center; }
+
+  /* ---------- Evidence Summary (audit document) ---------- */
+  .evidence-doc { background: #fff; border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow-card); padding: 56px 64px 48px; max-width: 880px; margin: 0 auto; }
+  .ev-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; padding-bottom: 20px; border-bottom: 1px solid var(--border); }
+  .ev-brand { display: flex; align-items: center; gap: 10px; }
+  .ev-brand .b1 { font-weight: 600; font-size: 18px; letter-spacing: -0.02em; line-height: 1.1; }
+  .ev-brand .b2 { font-size: 12px; color: var(--text-subtle); }
+  .ev-stamp { text-align: right; font-size: 12px; color: var(--text-subtle); line-height: 1.5; }
+  .ev-stamp .mono { color: var(--text-secondary); }
+  .ev-title { font-size: 26px; font-weight: 600; letter-spacing: -0.025em; margin: 32px 0 0 0; }
+  .ev-lede { font-size: 13px; color: var(--text-secondary); margin-top: 4px; }
+  .ev-status-sub { font-size: 12.5px; color: var(--text-secondary); margin-left: 10px; }
+  .ev-foot { margin-top: 40px; padding-top: 16px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-subtle); line-height: 1.6; }
+  @media (max-width: 720px) { .evidence-doc { padding: 28px 20px; } }
+  @page { margin: 16mm; }
+  @media print {
+    .sidebar, .topbar, .mobile-nav, .no-print { display: none !important; }
+    .shell { display: block; }
+    .content { padding: 0; max-width: none; }
+    body { background: #fff; }
+    .evidence-doc { border: none; box-shadow: none; padding: 0; max-width: none; border-radius: 0; }
+    .kv-row { break-inside: avoid; }
+    .kv-section { break-after: avoid; }
+    .badge { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ============================== UTILITIES ============================== */
+  const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+  const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const qs = (sel, root) => (root || document).querySelector(sel);
+  const qsa = (sel, root) => Array.from((root || document).querySelectorAll(sel));
+  const clone = (o) => JSON.parse(JSON.stringify(o));
+  const fmtNum = (n) => Number(n || 0).toLocaleString();
+  function fmtPct(n) {
+    if (n == null || isNaN(n)) return "—";
+    const r = Math.round(n * 10) / 10;
+    return (r % 1 === 0 ? r.toFixed(0) : r.toFixed(1)) + "%";
+  }
+  const pctOrDash = (v) => (v == null ? "—" : fmtPct(v));
+  function fmtDate(iso) {
+    const d = new Date(iso);
+    return isNaN(d) ? "—" : d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+  }
+  function fmtDateTime(iso) {
+    const d = new Date(iso);
+    return isNaN(d) ? "—" : fmtDate(iso) + " · " + d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+  }
+  const plural = (n, one, many) => (n === 1 ? one : many);
+  function downloadCSV(filename, rows) {
+    const blob = new Blob([Papa.unparse(rows)], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  /* ============================== SHA-256 FINGERPRINTS ============================== */
+  function fileToArrayBuffer(file) {
+    if (file.arrayBuffer) return file.arrayBuffer();
+    return new Promise((resolve, reject) => {
+      const fr = new FileReader();
+      fr.onload = () => resolve(fr.result);
+      fr.onerror = () => reject(fr.error);
+      fr.readAsArrayBuffer(file);
+    });
+  }
+  async function sha256Hex(buffer) {
+    const subtle = window.crypto && window.crypto.subtle;
+    if (!subtle) return null;
+    const digest = await subtle.digest("SHA-256", buffer);
+    return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
+  }
+  const sha256OfFile = (file) => fileToArrayBuffer(file).then(sha256Hex).catch(() => null);
+  const sha256OfText = (text) => sha256Hex(new TextEncoder().encode(text)).catch(() => null);
+  const shortHash = (h) => (h ? h.slice(0, 6) + "…" + h.slice(-4) : "");
+  function hashChip(hash, full) {
+    if (!hash) return '<span class="faint">Not recorded</span>';
+    return '<span class="hash" title="' + esc(hash) + '">' + esc(full ? hash : shortHash(hash)) + '</span> <button type="button" class="copy-btn no-print" data-copy="' + esc(hash) + '" title="Copy full SHA-256">Copy</button>';
+  }
+
+  /* ============================== STORAGE ============================== */
+  const STORAGE_KEY = "parity_recon_state_v1";
+  const emptyState = () => ({ reconciliations: {}, profiles: {}, settings: {} });
+  function loadState() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return emptyState();
+      const p = JSON.parse(raw);
+      return { reconciliations: p.reconciliations || {}, profiles: p.profiles || {}, settings: p.settings || {} };
+    } catch (e) { return emptyState(); }
+  }
+  function saveState() { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(STATE)); } catch (e) { console.error("Storage error", e); } }
+  let STATE = loadState();
+
+  const listRecons = () => Object.values(STATE.reconciliations).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  const listProfiles = () => Object.values(STATE.profiles).sort((a, b) => a.name.localeCompare(b.name));
+  const getRecon = (id) => STATE.reconciliations[id];
+  const getProfile = (id) => (id ? STATE.profiles[id] : undefined);
+  const latestRun = (r) => (r.runs.length ? r.runs[r.runs.length - 1] : null);
+  const reconTitle = (r) => (r.cycle ? r.name + " — " + r.cycle : r.name);
+  const comparisonKeyLabel = (includeAccount) => (includeAccount ? "Identity + Account + Entitlement" : "Identity + Entitlement");
+
+  /* ============================== METRICS / STATUS ============================== */
+  const trueMismatchCount = (run) => (run.missingFromIgaCount || 0) + (run.missingFromSourceCount || 0);
+  const sourceCompletenessValue = (run) => (run.sourceRelationships ? (run.matchedCount / run.sourceRelationships) * 100 : null);
+  const igaAlignmentValue = (run) => (run.igaRelationships ? (run.matchedCount / run.igaRelationships) * 100 : null);
+  function runStatus(run) {
+    return trueMismatchCount(run) > 0 ? { label: "Out of parity", tone: "warning", inParity: false } : { label: "In parity", tone: "success", inParity: true };
+  }
+  function reconStatus(recon) {
+    const run = latestRun(recon);
+    return run ? runStatus(run) : { label: "Needs review", tone: "neutral", inParity: false };
+  }
+  const formattingCount = (run) => run.exceptions.filter((e) => e.exceptionType === "Formatting / normalized match" || e.exceptionType === "Custom-rule normalized match").length;
+  const statusBadge = (s) => '<span class="badge badge-' + s.tone + '"><span class="dot"></span>' + s.label + "</span>";
+
+  /* ============================== NORMALIZATION + COMPARISON ENGINE ============================== */
+  const RULE_SCOPES = [
+    { value: "all", label: "All fields" },
+    { value: "identity", label: "Identity (both files)" },
+    { value: "entitlement", label: "Entitlement (both files)" },
+    { value: "source-identity", label: "Source — Identity" },
+    { value: "source-entitlement", label: "Source — Entitlement" },
+    { value: "iga-identity", label: "IGA — Identity" },
+    { value: "iga-entitlement", label: "IGA — Entitlement" }
+  ];
+  const ruleScopeLabel = (v) => (RULE_SCOPES.find((s) => s.value === v) || { label: v }).label;
+  function ruleAppliesTo(scope, side, field) {
+    if (scope === "all") return true;
+    if (scope === "identity") return field === "identity";
+    if (scope === "entitlement") return field === "entitlement";
+    if (scope === side + "-identity") return field === "identity";
+    if (scope === side + "-entitlement") return field === "entitlement";
+    return false;
+  }
+  const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  function applyOneRule(value, rule) {
+    if (!rule.find) return { value, error: null };
+    try {
+      const re = new RegExp(rule.useRegex ? rule.find : escapeRegExp(rule.find), rule.matchCase ? "g" : "gi");
+      return { value: value.replace(re, rule.replace || ""), error: null };
+    } catch (e) { return { value, error: "Invalid pattern" }; }
+  }
+  function applyCustomRules(value, rules, side, field) {
+    let s = value;
+    (rules || []).forEach((rule) => { if (ruleAppliesTo(rule.scope, side, field)) s = applyOneRule(s, rule).value; });
+    return s;
+  }
+  function normalizeBasic(v, opts) {
+    let s = v == null ? "" : String(v);
+    if (opts.trim) s = s.trim();
+    if (opts.dedupeSpaces) s = s.replace(/\s+/g, " ");
+    if (opts.caseInsensitive) s = s.toLowerCase();
+    return s;
+  }
+  function normalizeValue(v, opts, ctx) {
+    let s = v == null ? "" : String(v);
+    if (ctx && opts.customRules && opts.customRules.length) s = applyCustomRules(s, opts.customRules, ctx.side, ctx.field);
+    return normalizeBasic(s, opts);
+  }
+
+  const KEY_SEP = "\u0001";
+  const str = (v) => (v == null ? "" : String(v));
+  const display = (v) => (v == null || v === "" ? "(blank)" : v);
+
+  function buildGroups(rows, mapping, opts, side, useAccount) {
+    const map = {};
+    rows.forEach((row) => {
+      const rawIdentity = row[mapping.identity];
+      const rawEntitlement = row[mapping.entitlement];
+      const rawAccount = useAccount ? row[mapping.account] : undefined;
+      const nId = normalizeValue(rawIdentity, opts, { side, field: "identity" });
+      const nEnt = normalizeValue(rawEntitlement, opts, { side, field: "entitlement" });
+      if (opts.ignoreBlank && (!nId || !nEnt)) return;
+      const nAcct = useAccount ? normalizeValue(rawAccount, opts, { side, field: "account" }) : "";
+      const key = useAccount ? nId + KEY_SEP + nAcct + KEY_SEP + nEnt : nId + KEY_SEP + nEnt;
+      const g = map[key] || (map[key] = { count: 0, variants: {} });
+      g.count++;
+      const vk = str(rawIdentity) + KEY_SEP + str(rawAccount) + KEY_SEP + str(rawEntitlement);
+      const v = g.variants[vk] || (g.variants[vk] = { rawIdentity, rawEntitlement, rawAccount, count: 0 });
+      v.count++;
+    });
+    return map;
+  }
+  function primaryVariant(group) {
+    let best = null;
+    Object.keys(group.variants).forEach((k) => { if (!best || group.variants[k].count > best.count) best = group.variants[k]; });
+    return best;
+  }
+  const rawEqual = (a, b, useAcct) => str(a.rawIdentity) === str(b.rawIdentity) && str(a.rawEntitlement) === str(b.rawEntitlement) && (!useAcct || str(a.rawAccount) === str(b.rawAccount));
+  function basicEqual(a, b, opts, useAcct) {
+    return normalizeBasic(a.rawIdentity, opts) === normalizeBasic(b.rawIdentity, opts) &&
+      normalizeBasic(a.rawEntitlement, opts) === normalizeBasic(b.rawEntitlement, opts) &&
+      (!useAcct || normalizeBasic(a.rawAccount, opts) === normalizeBasic(b.rawAccount, opts));
+  }
+  const variantText = (v, useAcct) => "\u201c" + display(v.rawIdentity) + (useAcct ? " / " + display(v.rawAccount) : "") + " / " + display(v.rawEntitlement) + "\u201d";
+  const TYPE_ORDER = ["Missing from IGA", "Missing from Source", "Duplicate", "Custom-rule normalized match", "Formatting / normalized match"];
+
+  /* Compares the two populations. Duplicates are collapsed to one relationship for matching,
+     but every detected duplicate is always reported as its own "Duplicate" exception. */
+  function runComparison(sourceRows, igaRows, mapping, opts, includeAccount) {
+    const useAcct = !!(includeAccount && mapping.source.account && mapping.iga.account);
+    const src = buildGroups(sourceRows, mapping.source, opts, "source", useAcct);
+    const iga = buildGroups(igaRows, mapping.iga, opts, "iga", useAcct);
+    const keys = new Set(Object.keys(src).concat(Object.keys(iga)));
+    const exceptions = [];
+    let matched = 0;
+
+    keys.forEach((key) => {
+      const s = src[key], i = iga[key];
+      const sv = s ? primaryVariant(s) : null;
+      const iv = i ? primaryVariant(i) : null;
+      const shown = sv || iv;
+      const base = { identity: shown.rawIdentity, entitlement: shown.rawEntitlement, account: useAcct ? shown.rawAccount : undefined };
+      const cnt = (g) => (g ? (g.count > 1 ? "Present (\u00d7" + g.count + ")" : "Present") : "Absent");
+      if (s && i) {
+        matched++;
+        if (!rawEqual(sv, iv, useAcct)) {
+          exceptions.push(Object.assign({}, base, {
+            sourceStatus: "Present — " + variantText(sv, useAcct), igaStatus: "Present — " + variantText(iv, useAcct),
+            exceptionType: basicEqual(sv, iv, opts, useAcct) ? "Formatting / normalized match" : "Custom-rule normalized match"
+          }));
+        }
+      } else if (s) {
+        exceptions.push(Object.assign({}, base, { sourceStatus: cnt(s), igaStatus: "Absent", exceptionType: "Missing from IGA" }));
+      } else {
+        exceptions.push(Object.assign({}, base, { sourceStatus: "Absent", igaStatus: cnt(i), exceptionType: "Missing from Source" }));
+      }
+      if ((s && s.count > 1) || (i && i.count > 1)) {
+        exceptions.push(Object.assign({}, base, { sourceStatus: cnt(s), igaStatus: cnt(i), exceptionType: "Duplicate" }));
+      }
+    });
+
+    exceptions.sort((a, b) => TYPE_ORDER.indexOf(a.exceptionType) - TYPE_ORDER.indexOf(b.exceptionType) ||
+      str(a.identity).localeCompare(str(b.identity)) || str(a.entitlement).localeCompare(str(b.entitlement)));
+    const count = (t) => exceptions.filter((e) => e.exceptionType === t).length;
+    return {
+      includeAccount: useAcct,
+      sourceRelationships: Object.keys(src).length,
+      igaRelationships: Object.keys(iga).length,
+      matchedCount: matched,
+      missingFromIgaCount: count("Missing from IGA"),
+      missingFromSourceCount: count("Missing from Source"),
+      duplicateCount: count("Duplicate"),
+      exceptions
+    };
+  }
+
+  /* ============================== CSV PARSING ============================== */
+  function parseCSVFile(file) {
+    return new Promise((resolve, reject) => {
+      Papa.parse(file, {
+        header: true, skipEmptyLines: "greedy",
+        complete: (r) => resolve({ data: r.data, fields: r.meta.fields || [], rowCount: r.data.length }),
+        error: reject
+      });
+    });
+  }
+
+  /* ============================== RUN RECORDS ============================== */
+  const DEFAULT_NORM = { trim: true, caseInsensitive: true, dedupeSpaces: true, ignoreBlank: true, ignoreDuplicates: true, customRules: [] };
+  const cloneNorm = (n) => Object.assign({}, DEFAULT_NORM, clone(n || {}), { customRules: clone((n && n.customRules) || []) });
+
+  function pushRun(recon, meta, result, timestamp) {
+    recon.runs.push({
+      runNumber: recon.runs.length + 1, timestamp: timestamp || new Date().toISOString(),
+      sourceFileName: meta.sourceFileName, igaFileName: meta.igaFileName,
+      sourceRowCount: meta.sourceRowCount, igaRowCount: meta.igaRowCount,
+      sourceFileHash: meta.sourceFileHash || null, igaFileHash: meta.igaFileHash || null,
+      includeAccount: !!result.includeAccount,
+      sourceRelationships: result.sourceRelationships, igaRelationships: result.igaRelationships,
+      matchedCount: result.matchedCount, missingFromIgaCount: result.missingFromIgaCount,
+      missingFromSourceCount: result.missingFromSourceCount, duplicateCount: result.duplicateCount,
+      exceptions: result.exceptions, normalization: meta.normalization
+    });
+  }
+
+  /* ============================== DEMO DATA ============================== */
+  const DEMO_VERSION = 2;
+  const DEMO_MAPPING = {
+    source: { identity: "Employee ID", entitlement: "Access Code", account: "Account", application: "Application", displayName: "User Name" },
+    iga: { identity: "Identity ID", entitlement: "Entitlement", account: "Account Name", application: "Source App", description: "Description", displayName: "Display Name" }
+  };
+  function buildDemoDataset() {
+    const base = [
+      ["100023", "AP_APPROVER"], ["100024", "GL_READ"], ["100025", "PO_CREATE"], ["100026", "FIN_ADMIN"], ["100027", "AP_CLERK"], ["100028", "GL_POST"],
+      ["100029", "PO_APPROVE"], ["100030", "FIN_VIEWER"], ["100031", "AR_ADJUST"], ["100032", "INV_CONTROL"], ["100033", "AP_APPROVER"], ["100034", "GL_READ"],
+      ["100035", "PO_CREATE"], ["100036", "CASH_MGMT"], ["100037", "TAX_ADMIN"], ["100038", "FIN_ADMIN"], ["100039", "AP_CLERK"], ["100040", "GL_POST"],
+      ["100041", "PO_APPROVE"], ["100042", "AR_ADJUST"], ["100043", "INV_CONTROL"], ["100044", "VENDOR_MAINT"], ["100045", "FIN_VIEWER"], ["100046", "CASH_MGMT"],
+      ["100047", "TAX_ADMIN"], ["100048", "AP_APPROVER"], ["100049", "GL_READ"], ["100050", "PO_CREATE"]
+    ];
+    const src = base.map((r) => ({ "Employee ID": r[0], "Access Code": r[1], "Application": "Oracle ERP", "Account": "ORCL-" + r[0], "User Name": "User " + r[0] }));
+    src[5] = Object.assign({}, src[5], { "Access Code": "  gl_post " });
+    src[12] = Object.assign({}, src[12], { "Employee ID": "100035 " });
+    src.push(Object.assign({}, src[0]));
+    src.push(Object.assign({}, src[3]));
+    src.push({ "Employee ID": "100051", "Access Code": "FIN_ADMIN", "Application": "Oracle ERP", "Account": "ORCL-100051", "User Name": "User 100051" });
+    src.push({ "Employee ID": "100052", "Access Code": "AP_APPROVER", "Application": "Oracle ERP", "Account": "ORCL-100052", "User Name": "User 100052" });
+    let iga = base.map((r) => ({ "Identity ID": r[0], "Entitlement": r[1], "Source App": "Oracle ERP", "Account Name": "ORCL-" + r[0], "Display Name": "User " + r[0], "Description": r[1] + " access" }));
+    iga = iga.filter((r) => r["Identity ID"] !== "100029" && r["Identity ID"] !== "100044");
+    iga.push({ "Identity ID": "100060", "Entitlement": "AUDIT_VIEW", "Source App": "Oracle ERP", "Account Name": "ORCL-100060", "Display Name": "User 100060", "Description": "Audit access" });
+    iga.push({ "Identity ID": "100061", "Entitlement": "GL_READ", "Source App": "Oracle ERP", "Account Name": "ORCL-100061", "Display Name": "User 100061", "Description": "GL access" });
+    iga.push(Object.assign({}, iga[1]));
+    return { sourceRows: src, igaRows: iga };
+  }
+
+  let demoPromise = null;
+  function ensureDemo() {
+    if (demoPromise) return demoPromise;
+    demoPromise = (async () => {
+      Object.values(STATE.reconciliations).forEach((r) => { if (r.isDemo && r.demoVersion !== DEMO_VERSION) delete STATE.reconciliations[r.id]; });
+      Object.values(STATE.profiles).forEach((p) => { if (p.isDemo && p.demoVersion !== DEMO_VERSION) delete STATE.profiles[p.id]; });
+      const existing = Object.values(STATE.reconciliations).find((r) => r.isDemo);
+      if (existing) return existing.id;
+
+      const d = buildDemoDataset();
+      const srcHeaders = Object.keys(d.sourceRows[0]);
+      const igaHeaders = Object.keys(d.igaRows[0]);
+      const profile = {
+        id: "demo-profile-" + uid(), name: "Oracle ERP", igaPlatform: "SailPoint IIQ", isDemo: true, demoVersion: DEMO_VERSION,
+        mapping: clone(DEMO_MAPPING), includeAccount: false, normalization: cloneNorm(DEFAULT_NORM),
+        expectedSourceHeaders: srcHeaders, expectedIgaHeaders: igaHeaders, lastCycle: "2026 Q3 SOX",
+        createdAt: new Date(Date.now() - 12 * 86400000).toISOString(), updatedAt: new Date().toISOString()
+      };
+      STATE.profiles[profile.id] = profile;
+      const recon = {
+        id: "demo-" + uid(), name: "Oracle ERP", cycle: "2026 Q3 SOX", profileId: profile.id, isDemo: true, demoVersion: DEMO_VERSION,
+        createdAt: new Date(Date.now() - 12 * 86400000).toISOString(),
+        lastMapping: clone(DEMO_MAPPING), lastIncludeAccount: false, lastNormalization: cloneNorm(DEFAULT_NORM),
+        expectedSourceHeaders: srcHeaders, expectedIgaHeaders: igaHeaders, runs: []
+      };
+      STATE.reconciliations[recon.id] = recon;
+
+      const loose = cloneNorm({ trim: false, caseInsensitive: false, dedupeSpaces: false, ignoreBlank: true, ignoreDuplicates: false });
+      const applied = cloneNorm(DEFAULT_NORM);
+      const src2 = d.sourceRows.slice(0, -2);
+      const iga3 = d.igaRows.slice(0, -1);
+      const plan = [
+        { s: d.sourceRows, i: d.igaRows, n: loose, sn: "Oracle_ERP_ACL_v1.csv", in: "SailPoint_Staging_v1.csv", t: Date.now() - 11 * 86400000 },
+        { s: src2, i: d.igaRows, n: applied, sn: "Oracle_ERP_ACL_v2.csv", in: "SailPoint_Staging_v2.csv", t: Date.now() - 4 * 86400000 },
+        { s: src2, i: iga3, n: applied, sn: "Oracle_ERP_ACL_2026-09-27.csv", in: "SailPoint_Staging_2026-09-27.csv", t: Date.now() }
+      ];
+      for (const p of plan) {
+        const res = runComparison(p.s, p.i, DEMO_MAPPING, p.n, false);
+        pushRun(recon, {
+          sourceFileName: p.sn, igaFileName: p.in, sourceRowCount: p.s.length, igaRowCount: p.i.length,
+          sourceFileHash: await sha256OfText(Papa.unparse(p.s)), igaFileHash: await sha256OfText(Papa.unparse(p.i)), normalization: p.n
+        }, res, new Date(p.t).toISOString());
+      }
+      saveState();
+      return recon.id;
+    })().finally(() => { demoPromise = null; });
+    return demoPromise;
+  }
+
+  /* ============================== ICONS ============================== */
+  const svg16 = (inner) => '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + inner + "</svg>";
+  const ICONS = {
+    dashboard: svg16('<rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/>'),
+    recon: svg16('<circle cx="6" cy="8" r="4.2"/><circle cx="10" cy="8" r="4.2"/>'),
+    apps: svg16('<rect x="2.5" y="2.5" width="4.5" height="4.5" rx="1"/><rect x="9" y="2.5" width="4.5" height="4.5" rx="1"/><rect x="2.5" y="9" width="4.5" height="4.5" rx="1"/><path d="M11.25 9v4.5M9 11.25h4.5"/>'),
+    demo: svg16('<path d="M5 3l8 5-8 5V3z"/>'),
+    settings: svg16('<circle cx="8" cy="8" r="2.3"/><path d="M8 1.5v1.6M8 12.9v1.6M14.5 8h-1.6M3.1 8H1.5M12.4 3.6l-1.1 1.1M4.7 11.3l-1.1 1.1M12.4 12.4l-1.1-1.1M4.7 4.7 3.6 3.6"/>'),
+    search: svg16('<circle cx="7" cy="7" r="4.5"/><path d="M13 13l-2.5-2.5"/>'),
+    check: svg16('<path d="M3 8.5l3.2 3.2L13 4.7"/>'),
+    checkWhite: '<svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5l3.2 3.2L13 4.7"/></svg>',
+    chevron: svg16('<path d="M6 3.5l4.5 4.5L6 12.5"/>'),
+    x: svg16('<path d="M4 4l8 8M12 4l-8 8"/>'),
+    plus: svg16('<path d="M8 3v10M3 8h10"/>'),
+    info: svg16('<circle cx="8" cy="8" r="6.2"/><path d="M8 7.2v3.8M8 5.2v.1"/>'),
+    lock: svg16('<rect x="3.5" y="7" width="9" height="6.5" rx="1"/><path d="M5.5 7V4.8a2.5 2.5 0 015 0V7"/>'),
+    file: svg16('<path d="M4 1.8h5l3 3v9.4H4V1.8z"/><path d="M9 1.8v3h3"/>'),
+    upload: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V5M7.5 9.5L12 5l4.5 4.5"/><path d="M4.5 16.5v1.5A2 2 0 006.5 20h11a2 2 0 002-2v-1.5"/></svg>',
+    okCircle: '<svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10" cy="10" r="8"/><path d="M6.5 10.3l2.3 2.3 4.7-4.9"/></svg>',
+    warnTri: '<svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3l7.5 13h-15L10 3z"/><path d="M10 8.5v3.5M10 14.3v.1"/></svg>'
+  };
+  function logo(size) {
+    const s = size || 24;
+    return '<svg class="logo" width="' + s + '" height="' + s + '" viewBox="0 0 28 28" aria-hidden="true"><defs><clipPath id="pl-clip"><circle cx="10.5" cy="14" r="9"/></clipPath></defs><circle cx="10.5" cy="14" r="9" fill="#183B5B"/><circle cx="17.5" cy="14" r="9" fill="#0F766E"/><circle cx="17.5" cy="14" r="9" fill="#6FD3C5" clip-path="url(#pl-clip)"/></svg>';
+  }
+  const PRIVACY = "Raw CSV files never leave your browser and are not retained. Reconciliation history and exception records are stored locally on this device.";
+
+  /* ============================== ROUTER ============================== */
+  const parseHash = () => location.hash.replace(/^#\/?/, "").split("/").filter(Boolean);
+  const navigate = (p) => { location.hash = p; };
+  let lastSection = null;
+
+  function render() {
+    const parts = parseHash();
+    const root = qs("#app");
+    const section = parts[0] || "";
+    const prev = lastSection;
+    lastSection = section;
+    const shell = (active, html, bind) => { root.innerHTML = shellWrap(active, html); bindShell(); if (bind) bind(); };
+
+    if (section === "") { root.innerHTML = renderLanding(); return; }
+    if (section === "app") return shell("app", renderDashboard());
+    if (section === "reconciliations") return shell("reconciliations", renderReconciliationsList());
+    if (section === "applications") return shell("applications", renderApplications());
+    if (section === "application") {
+      const p = getProfile(parts[1]);
+      return shell("applications", p ? renderApplicationDetail(p) : notFound("Application profile not found.", "#/applications"), () => bindApplicationDetail(p));
+    }
+    if (section === "settings") return shell("settings", renderSettings(), bindSettings);
+    if (section === "demo") {
+      shell("demo", '<div class="content"><div class="card muted">Preparing demo data…</div></div>');
+      ensureDemo().then((id) => { if (parseHash()[0] === "demo") navigate("recon/" + id); });
+      return;
+    }
+    if (section === "new") {
+      if (prev !== "new") WIZ = null;
+      return shell("reconciliations", renderWizard(parts[1], parts[2]), bindWizard);
+    }
+    if (section === "recon") {
+      const recon = getRecon(parts[1]);
+      if (!recon) return shell("reconciliations", notFound("Reconciliation not found.", "#/reconciliations"));
+      if (parts[2] === "run" && parts[3]) {
+        const n = parseInt(parts[3], 10);
+        if (parts[4] === "evidence") return shell("reconciliations", renderEvidence(recon, n), bindEvidence);
+        return shell("reconciliations", renderRunResults(recon, n), () => bindRunResults(recon, n));
+      }
+      return shell("reconciliations", renderReconDetail(recon));
+    }
+    shell("app", renderDashboard());
+  }
+  window.addEventListener("hashchange", render);
+
+  function notFound(msg, href) { return '<div class="content"><div class="card">' + esc(msg) + ' <a href="' + href + '">Go back</a></div></div>'; }
+
+  /* ============================== SHELL ============================== */
+  function shellWrap(active, inner) {
+    const item = (hash, icon, label) => '<a class="nav-item ' + (active === hash ? "active" : "") + '" href="#/' + hash + '">' + ICONS[icon] + "<span>" + label + "</span></a>";
+    const opt = (hash, label) => '<option value="' + hash + '" ' + (active === hash ? "selected" : "") + ">" + label + "</option>";
+    return (
+      '<div class="mobile-nav"><div class="brand">' + logo(24) + '<span class="brand-name">Parity</span></div>' +
+        '<select id="mobileNavSelect" aria-label="Navigate">' + opt("app", "Dashboard") + opt("reconciliations", "Reconciliations") + opt("applications", "Applications") + opt("demo", "Demo") + opt("settings", "Settings") + "</select></div>" +
+      '<div class="shell"><aside class="sidebar">' +
+        '<div class="brand">' + logo(26) + '<span class="brand-name">Parity</span></div>' +
+        '<nav class="nav-section"><div class="nav-label">Workspace</div>' +
+          item("app", "dashboard", "Dashboard") + item("reconciliations", "recon", "Reconciliations") + item("applications", "apps", "Applications") + item("demo", "demo", "Demo") + "</nav>" +
+        '<nav class="nav-section"><div class="nav-label">System</div>' + item("settings", "settings", "Settings") + "</nav>" +
+        '<div class="sidebar-foot"><div class="foot-title"><span class="live-dot"></span>Local processing</div>Raw CSV files never leave this browser.</div>' +
+      '</aside><div class="main">' + inner + "</div></div>"
+    );
+  }
+  function bindShell() {
+    const sel = qs("#mobileNavSelect");
+    if (sel) sel.addEventListener("change", () => navigate(sel.value));
+  }
+  document.addEventListener("click", (e) => {
+    const b = e.target.closest && e.target.closest("[data-copy]");
+    if (!b) return;
+    const text = b.getAttribute("data-copy");
+    const done = () => { const old = b.textContent; b.textContent = "Copied"; setTimeout(() => { b.textContent = old; }, 1400); };
+    const fallback = () => {
+      const ta = document.createElement("textarea"); ta.value = text; document.body.appendChild(ta); ta.select();
+      try { document.execCommand("copy"); done(); } catch (_) { /* ignore */ }
+      document.body.removeChild(ta);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done).catch(fallback); else fallback();
+  });
+
+  /* ============================== LANDING ============================== */
+  function heroVisual() {
+    return (
+      '<svg width="380" height="290" viewBox="0 0 380 290" fill="none" role="img" aria-label="Source and IGA populations overlapping">' +
+        '<defs><clipPath id="hv-clip"><circle cx="150" cy="135" r="100"/></clipPath></defs>' +
+        '<circle cx="150" cy="135" r="100" fill="#183B5B" fill-opacity="0.10" stroke="#183B5B" stroke-width="1.5"/>' +
+        '<circle cx="235" cy="135" r="100" fill="#0F766E" fill-opacity="0.10" stroke="#0F766E" stroke-width="1.5"/>' +
+        '<circle cx="235" cy="135" r="100" fill="#6FD3C5" fill-opacity="0.45" clip-path="url(#hv-clip)"/>' +
+        '<text x="92" y="60" font-family="IBM Plex Sans" font-size="11.5" font-weight="600" fill="#183B5B" letter-spacing="0.6">SOURCE SYSTEM</text>' +
+        '<text x="238" y="60" font-family="IBM Plex Sans" font-size="11.5" font-weight="600" fill="#0F766E" letter-spacing="0.6">IGA PLATFORM</text>' +
+        '<text x="192" y="140" text-anchor="middle" font-family="IBM Plex Mono" font-size="14" font-weight="600" fill="#0F172A">IN PARITY</text>' +
+        '<rect x="62" y="228" width="124" height="42" rx="6" fill="#FFF7ED" stroke="#F6D3A8"/>' +
+        '<text x="124" y="245" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" font-weight="600" fill="#B45309">MISSING FROM IGA</text>' +
+        '<text x="124" y="262" text-anchor="middle" font-family="IBM Plex Mono" font-size="13" font-weight="600" fill="#B45309">14</text>' +
+        '<rect x="196" y="228" width="124" height="42" rx="6" fill="#FFF7ED" stroke="#F6D3A8"/>' +
+        '<text x="258" y="245" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" font-weight="600" fill="#B45309">MISSING FROM SOURCE</text>' +
+        '<text x="258" y="262" text-anchor="middle" font-family="IBM Plex Mono" font-size="13" font-weight="600" fill="#B45309">6</text>' +
+      "</svg>"
+    );
+  }
+  function renderLanding() {
+    return (
+      '<div class="landing"><div class="landing-nav"><div><div class="brand" style="padding:0;">' + logo(28) + '<span class="brand-name">Parity</span></div><div class="brand-desc" style="padding-left:37px;">Access Reconciliation</div></div>' +
+        '<div class="btn-row"><a class="btn btn-quiet" href="#/app">Open workspace</a><a class="btn btn-primary" href="#/new">Run a Reconciliation</a></div></div>' +
+      '<div class="hero"><div><h1>Prove your access certification population is complete and accurate.</h1>' +
+        '<p class="sub">Compare source-system access data against your IGA certification population in minutes, without manual VLOOKUPs.</p>' +
+        '<div class="ctas"><a class="btn btn-primary" href="#/new">Run a Reconciliation</a><a class="btn" href="#/demo">View Demo</a></div></div>' +
+        '<div class="venn-wrap">' + heroVisual() + "</div></div>" +
+      '<div class="benefits">' +
+        '<div class="benefit"><h3>Replace manual VLOOKUPs</h3><p>Compare thousands of identity-entitlement relationships automatically, using one composite key instead of nested formulas.</p></div>' +
+        '<div class="benefit"><h3>Find certification gaps</h3><p>See exactly what exists in the source system but is missing from the IGA population, and vice versa.</p></div>' +
+        '<div class="benefit"><h3>Track every rerun</h3><p>Keep reconciliation history as issues are corrected and certifications are restaged, from first pass to parity.</p></div></div>' +
+      '<div class="privacy-strip">' + ICONS.lock + "<span>" + PRIVACY + "</span></div></div>"
+    );
+  }
+
+  /* ============================== DASHBOARD / LISTS ============================== */
+  function metric(label, value, tone, hint) {
+    return '<div class="metric ' + (tone ? "tone-" + tone : "") + '"><div class="m-label">' + label + '</div><div class="m-value">' + value + "</div>" + (hint ? '<div class="m-hint">' + hint + "</div>" : "") + "</div>";
+  }
+  function latestOverall() {
+    let best = null;
+    Object.values(STATE.reconciliations).forEach((r) => { const run = latestRun(r); if (run && (!best || new Date(run.timestamp) > new Date(best.timestamp))) best = run; });
+    return best;
+  }
+  function renderDashboard() {
+    const recons = listRecons();
+    const totalRuns = recons.reduce((s, r) => s + r.runs.length, 0);
+    let body;
+    if (!recons.length) {
+      body = '<div class="card"><div class="empty-state"><h3>No reconciliations yet</h3><p>Run your first parity check to compare a source-system access export against your IGA certification population.</p>' +
+        '<div class="btn-row" style="justify-content:center;"><a class="btn btn-primary" href="#/new">Run a Reconciliation</a><a class="btn" href="#/demo">View Demo</a></div></div></div>';
+    } else {
+      const lr = latestOverall();
+      body =
+        '<div class="metric-grid-auto">' +
+          metric("Reconciliations", recons.length) + metric("Total runs", totalRuns) +
+          metric("Source Completeness", lr ? pctOrDash(sourceCompletenessValue(lr)) : "—", "accent", "Latest run") +
+          metric("IGA Population Alignment", lr ? pctOrDash(igaAlignmentValue(lr)) : "—", "accent", "Latest run") +
+          metric("Open exceptions", lr ? fmtNum(trueMismatchCount(lr)) : "—", lr && trueMismatchCount(lr) > 0 ? "warning" : "success", "Missing from IGA + Source") +
+        "</div>" +
+        '<div class="section"><div class="section-head"><h2 class="section-title">Recent reconciliations</h2><a class="btn btn-sm btn-primary" href="#/new">New reconciliation</a></div><div class="surface">' +
+          reconListHeader() + recons.slice(0, 6).map(reconRow).join("") + "</div></div>";
+    }
+    return '<div class="topbar"><div class="page-title">Dashboard</div><a class="btn btn-primary" href="#/new">Run a Reconciliation</a></div><div class="content">' + body + "</div>";
+  }
+  function reconListHeader() {
+    return '<div class="list-row list-head">' +
+      ["Reconciliation", "Completeness", "Alignment", "Exceptions", "Runs", "Status"].map((h) => '<div class="lr-label">' + h + "</div>").join("") + "<div></div></div>";
+  }
+  function reconRow(recon) {
+    const run = latestRun(recon);
+    return (
+      '<a class="list-row" href="#/recon/' + recon.id + '">' +
+        '<div><div class="lr-name">' + esc(reconTitle(recon)) + (recon.isDemo ? ' <span class="tag-demo">Demo</span>' : "") + '</div><div class="faint" style="font-size:12px;">Created ' + fmtDate(recon.createdAt) + "</div></div>" +
+        '<div class="mono">' + (run ? pctOrDash(sourceCompletenessValue(run)) : "—") + "</div>" +
+        '<div class="mono">' + (run ? pctOrDash(igaAlignmentValue(run)) : "—") + "</div>" +
+        '<div class="mono">' + (run ? fmtNum(trueMismatchCount(run)) : "—") + "</div>" +
+        '<div class="mono">' + recon.runs.length + "</div>" +
+        "<div>" + statusBadge(reconStatus(recon)) + "</div>" +
+        '<div class="chev">' + ICONS.chevron + "</div></a>"
+    );
+  }
+  function renderReconciliationsList() {
+    const recons = listRecons();
+    const body = recons.length
+      ? '<div class="surface">' + reconListHeader() + recons.map(reconRow).join("") + "</div>"
+      : '<div class="card"><div class="empty-state"><h3>No reconciliations yet</h3><p>Every parity check you run will appear here with its run history and exception trend.</p><a class="btn btn-primary" href="#/new">Run a Reconciliation</a></div></div>';
+    return '<div class="topbar"><div class="page-title">Reconciliations</div><a class="btn btn-primary" href="#/new">New reconciliation</a></div><div class="content">' + body + "</div>";
+  }
+
+  /* ============================== APPLICATIONS ============================== */
+  function profileCard(p, opts) {
+    const o = opts || {};
+    const tag = o.tag || "button";
+    const attrs = tag === "a" ? ' href="#/application/' + p.id + '"' : ' type="button" data-profile="' + p.id + '"';
+    return (
+      "<" + tag + ' class="profile-card ' + (o.selected ? "selected" : "") + '"' + attrs + ">" +
+        (o.selected ? '<span class="pc-check">' + ICONS.checkWhite + "</span>" : "") +
+        '<div class="pc-name">' + esc(p.name) + (p.isDemo ? ' <span class="tag-demo">Demo</span>' : "") + "</div>" +
+        '<div class="pc-plat">' + esc(p.igaPlatform || "IGA platform not set") + "</div>" +
+        '<div class="pc-key">' + comparisonKeyLabel(p.includeAccount) + "</div>" +
+        '<div class="pc-last">Last used: ' + esc(p.lastCycle || "—") + "</div></" + tag + ">"
+    );
+  }
+  function renderApplications() {
+    const profiles = listProfiles();
+    const body = profiles.length
+      ? '<div class="profile-grid">' + profiles.map((p) => profileCard(p, { tag: "a" })).join("") + "</div>"
+      : '<div class="card"><div class="empty-state"><h3>No application profiles yet</h3><p>Map an application once, then reuse that setup every certification cycle.</p><a class="btn btn-primary" href="#/new/newprofile">New Application Profile</a></div></div>';
+    return '<div class="topbar"><div class="page-title">Applications</div><a class="btn btn-primary" href="#/new/newprofile">' + ICONS.plus + " New Application Profile</a></div>" +
+      '<div class="content"><p class="muted" style="margin-bottom:16px;max-width:64ch;">Application profiles save column mappings, the comparison key and normalization settings, so recurring certifications don\u2019t need to be remapped each cycle.</p>' + body + "</div>";
+  }
+  function mappingSummary(m) {
+    const parts = [esc(m.identity || "—") + " \u2192 " + esc(m.entitlement || "—")];
+    if (m.account) parts.push("Account: " + esc(m.account));
+    if (m.application) parts.push("Application: " + esc(m.application));
+    return parts.join(" · ");
+  }
+  function normSummary(n) {
+    const labels = { trim: "Trim whitespace", caseInsensitive: "Case insensitive", dedupeSpaces: "Collapse repeated spaces", ignoreBlank: "Ignore blank rows", ignoreDuplicates: "Ignore duplicates" };
+    const on = Object.keys(labels).filter((k) => n[k]).map((k) => labels[k]);
+    const rules = (n.customRules || []).length;
+    return (on.length ? on.join(", ") : "None") + (rules ? " · " + rules + " custom rule" + (rules === 1 ? "" : "s") : "");
+  }
+  function renderApplicationDetail(p) {
+    const recons = listRecons().filter((r) => r.profileId === p.id);
+    const tree = recons.length
+      ? '<div class="tree">' + recons.map((r) => {
+          const st = reconStatus(r);
+          return '<div class="tree-cycle"><div class="tree-cycle-head"><a href="#/recon/' + r.id + '">' + esc(r.cycle || "No certification cycle") + "</a>" + statusBadge(st) + '</div><div class="tree-runs">' +
+            r.runs.map((run) => '<div class="tree-run"><a href="#/recon/' + r.id + "/run/" + run.runNumber + '">Run ' + run.runNumber + '</a><span class="faint">' + fmtDate(run.timestamp) + '</span><span class="mono">' + fmtNum(trueMismatchCount(run)) + " " + plural(trueMismatchCount(run), "exception", "exceptions") + "</span></div>").join("") +
+            "</div></div>";
+        }).join("") + "</div>"
+      : '<p class="muted">No certification cycles yet. Start a reconciliation with this profile to create the first one.</p>';
+    return (
+      '<div class="topbar"><div><div class="crumb"><a href="#/applications">Applications</a> / ' + esc(p.name) + '</div><div class="page-title">' + esc(p.name) + (p.isDemo ? ' <span class="tag-demo">Demo</span>' : "") + "</div></div>" +
+        '<div class="btn-row"><button type="button" class="btn btn-danger" id="btnDeleteProfile">Delete profile</button><a class="btn btn-primary" href="#/new/profile/' + p.id + '">New reconciliation</a></div></div>' +
+      '<div class="content"><div class="card"><div class="card-title">Saved configuration</div>' +
+        kvRow("IGA platform", esc(p.igaPlatform || "—")) + kvRow("Comparison key", comparisonKeyLabel(p.includeAccount)) +
+        kvRow("Source mapping", mappingSummary(p.mapping.source)) + kvRow("IGA mapping", mappingSummary(p.mapping.iga)) +
+        kvRow("Normalization", esc(normSummary(p.normalization))) +
+        kvRow("Expected headers", (p.expectedSourceHeaders || []).length + " source · " + (p.expectedIgaHeaders || []).length + " IGA") +
+        kvRow("Last certification cycle", esc(p.lastCycle || "—")) + "</div>" +
+      '<div class="card"><div class="card-title">Certification cycles and runs</div>' + tree + "</div></div>"
+    );
+  }
+  const kvRow = (k, v) => '<div class="kv-row"><div class="k">' + k + '</div><div class="v">' + v + "</div></div>";
+  function bindApplicationDetail(p) {
+    const b = qs("#btnDeleteProfile");
+    if (b && p) b.onclick = () => {
+      if (confirm("Delete the profile \u201c" + p.name + "\u201d? Existing reconciliations and their run history are kept.")) { delete STATE.profiles[p.id]; saveState(); navigate("applications"); }
+    };
+  }
+
+  /* ============================== WIZARD ============================== */
+  let WIZ = null;
+  const WIZARD_STEPS = ["Application", "Source File", "IGA File", "Mapping", "Options", "Review"];
+
+  function freshWizard(kind, refId) {
+    const w = {
+      routeKey: (kind || "start") + ":" + (refId || ""), mode: "scratch", intent: kind === "newprofile" ? "new" : "scratch", step: 0, reconId: null, profileId: null,
+      appName: "", cycle: "", saveProfile: false, igaPlatform: "",
+      sourceParsed: null, igaParsed: null, mapping: { source: {}, iga: {} }, savedMapping: null,
+      includeAccount: false, savedIncludeAccount: false, keyDowngraded: false, normalization: cloneNorm(),
+      expected: { source: [], iga: [] }, structure: { source: null, iga: null }, missing: { source: {}, iga: {} }
+    };
+    if (kind === "recon") {
+      const r = getRecon(refId);
+      if (r) {
+        w.mode = "recon"; w.reconId = r.id; w.step = 1; w.appName = r.name; w.cycle = r.cycle || "";
+        w.profileId = getProfile(r.profileId) ? r.profileId : null;
+        w.mapping = clone(r.lastMapping); w.savedMapping = clone(r.lastMapping);
+        w.includeAccount = w.savedIncludeAccount = !!r.lastIncludeAccount;
+        w.normalization = cloneNorm(r.lastNormalization);
+        w.expected = { source: r.expectedSourceHeaders || [], iga: r.expectedIgaHeaders || [] };
+      }
+    } else if (kind === "profile") {
+      const p = getProfile(refId);
+      if (p) applyProfile(w, p);
+    } else if (kind === "newprofile") {
+      w.saveProfile = true;
+    }
+    return w;
+  }
+  function applyProfile(w, p) {
+    w.mode = "profile"; w.intent = "profile"; w.profileId = p.id; w.appName = p.name; w.igaPlatform = p.igaPlatform || "";
+    w.mapping = clone(p.mapping); w.savedMapping = clone(p.mapping);
+    w.includeAccount = w.savedIncludeAccount = !!p.includeAccount; w.keyDowngraded = false;
+    w.normalization = cloneNorm(p.normalization);
+    w.expected = { source: p.expectedSourceHeaders || [], iga: p.expectedIgaHeaders || [] };
+    w.saveProfile = false;
+  }
+  function resetToScratch(w) {
+    w.mode = "scratch"; w.profileId = null; w.appName = ""; w.igaPlatform = "";
+    w.mapping = { source: {}, iga: {} }; w.savedMapping = null; w.includeAccount = false; w.savedIncludeAccount = false; w.keyDowngraded = false;
+    w.normalization = cloneNorm(); w.expected = { source: [], iga: [] };
+  }
+  const sideParsed = (side) => (side === "source" ? WIZ.sourceParsed : WIZ.igaParsed);
+  const hasConfig = () => (WIZ.mode === "profile" || WIZ.mode === "recon") && !!WIZ.savedMapping;
+  const configLabel = () => (WIZ.profileId ? WIZ.appName + " profile" : "Previous run mapping");
+
+  /* Applies saved mappings to a freshly uploaded file. Columns that no longer exist are cleared and flagged, never silently remapped. */
+  function applyConfigToSide(side) {
+    const parsed = sideParsed(side);
+    WIZ.missing[side] = {};
+    if (!parsed) { WIZ.structure[side] = null; return; }
+    const fields = parsed.fields;
+    if (!hasConfig()) {
+      const m = WIZ.mapping[side];
+      Object.keys(m).forEach((k) => { if (m[k] && fields.indexOf(m[k]) === -1) m[k] = ""; });
+      WIZ.structure[side] = null;
+      return;
+    }
+    const saved = WIZ.savedMapping[side] || {};
+    const m = {}; let changed = false;
+    Object.keys(saved).forEach((k) => {
+      if (!saved[k]) { m[k] = ""; return; }
+      if (fields.indexOf(saved[k]) !== -1) m[k] = saved[k]; else { m[k] = ""; WIZ.missing[side][k] = saved[k]; changed = true; }
+    });
+    (WIZ.expected[side] || []).forEach((h) => { if (fields.indexOf(h) === -1) changed = true; });
+    WIZ.mapping[side] = m;
+    WIZ.structure[side] = changed ? "changed" : "recognized";
+  }
+
+  function renderWizard(kind, refId) {
+    const routeKey = (kind || "start") + ":" + (refId || "");
+    if (!WIZ || WIZ.routeKey !== routeKey) WIZ = freshWizard(kind, refId);
+    const bodies = [stepApplication, () => stepUpload("source"), () => stepUpload("iga"), stepMapping, stepOptions, stepReview];
+    const title = WIZ.mode === "recon" ? "Run new comparison — " + esc(reconTitle({ name: WIZ.appName, cycle: WIZ.cycle })) : "New reconciliation";
+    return '<div class="topbar"><div><div class="crumb"><a href="#/reconciliations">Reconciliations</a> / New</div><div class="page-title">' + title + "</div></div></div>" +
+      '<div class="content content-narrow">' + progressHtml(WIZ.step) + '<div class="card">' + bodies[WIZ.step]() + "</div></div>";
+  }
+  function progressHtml(current) {
+    return '<div class="progress" aria-label="Progress">' + WIZARD_STEPS.map((label, i) => {
+      const st = i < current ? "done" : i === current ? "current" : "future";
+      return (i ? '<span class="p-line ' + (i <= current ? "done" : "") + '"></span>' : "") +
+        '<span class="p-step ' + st + '"' + (st === "current" ? ' aria-current="step"' : "") + '><span class="p-dot">' + (st === "done" ? ICONS.checkWhite : "") + "</span>" + label + "</span>";
+    }).join("") + "</div>";
+  }
+  function actions(o) {
+    return '<div class="wizard-actions">' + (o.back ? '<button type="button" class="btn" id="wizBack">Back</button>' : "<span></span>") +
+      '<button type="button" class="btn btn-primary" id="' + o.id + '" ' + (o.disabled ? "disabled" : "") + ">" + (o.label || "Continue") + "</button></div>";
+  }
+
+  /* ----- Step 0: Application ----- */
+  function stepApplication() {
+    const profiles = listProfiles();
+    const scratchSel = WIZ.mode === "scratch";
+    const newSel = scratchSel && WIZ.intent === "new", scratchOnly = scratchSel && WIZ.intent !== "new";
+    const check = '<span class="pc-check">' + ICONS.checkWhite + "</span>";
+    const cards = profiles.map((p) => profileCard(p, { selected: WIZ.mode === "profile" && WIZ.profileId === p.id })).join("") +
+      '<button type="button" class="profile-card action ' + (newSel ? "selected" : "") + '" data-profile="__new">' + (newSel ? check : "") + '<div class="pc-name">' + ICONS.plus + ' New Application Profile</div><div class="pc-plat">Map once, reuse every cycle</div></button>' +
+      '<button type="button" class="profile-card action ' + (scratchOnly ? "selected" : "") + '" data-profile="">' + (scratchOnly ? check : "") + '<div class="pc-name">Start from scratch</div><div class="pc-plat">Map columns for this run only</div></button>';
+    const prof = WIZ.mode === "profile" ? getProfile(WIZ.profileId) : null;
+    return (
+      '<label class="field-label" style="margin-bottom:10px;display:block;">' + (profiles.length ? "Use a saved application profile or start from scratch" : "Application") + "</label>" +
+      '<div class="profile-grid" style="margin-bottom:20px;">' + cards + "</div>" +
+      (scratchSel
+        ? '<div class="field"><label class="field-label" for="wizApp">Application name <span class="req-mark">*</span></label><input type="text" id="wizApp" placeholder="e.g. Oracle ERP" value="' + esc(WIZ.appName) + '"></div>'
+        : '<div class="field"><label class="field-label">Application</label><div style="font-weight:600;">' + esc(WIZ.appName) + '</div><p class="field-hint">Saved mappings, comparison key and normalization settings will be applied.</p></div>') +
+      '<div class="field"><label class="field-label" for="wizCycle">Certification cycle <span class="faint" style="font-weight:400;">(optional)</span></label><input type="text" id="wizCycle" placeholder="e.g. 2026 1H" value="' + esc(WIZ.cycle) + '">' +
+        '<p class="field-hint">Groups runs under a cycle such as 2026 Q1, 2026 1H or 2026 Q3 SOX.' + (prof && prof.lastCycle ? " Last used: " + esc(prof.lastCycle) + "." : "") + "</p></div>" +
+      actions({ id: "wizNext0" })
+    );
+  }
+
+  /* ----- Steps 1-2: Upload ----- */
+  function structureBanner(side) {
+    const st = WIZ.structure[side];
+    if (!st) return "";
+    if (st === "recognized") return '<div class="banner ok">' + ICONS.check + "<span>" + esc(configLabel()) + " recognized — saved mappings applied</span></div>";
+    const miss = Object.keys(WIZ.missing[side]).map((k) => WIZ.missing[side][k]);
+    return '<div class="banner warn">' + ICONS.info + "<span>" + (side === "source" ? "Source" : "IGA") + " file structure has changed. Review mappings before continuing." +
+      (miss.length ? '<span class="b-sub">Mapped columns not found in this file: ' + miss.map(esc).join(", ") + "</span>" : "") + "</span></div>";
+  }
+  function stepUpload(which) {
+    const isSource = which === "source";
+    const parsed = sideParsed(which);
+    const title = isSource ? "Source File" : "IGA File";
+    const desc = isSource ? "Export from your authoritative source system (for example Oracle ERP)." : "Export from your IGA certification or staging population (for example SailPoint or Saviynt).";
+    let area;
+    if (parsed) {
+      area = '<div class="file-card"><span class="fc-icon">' + ICONS.check + '</span><div class="fc-body"><div class="fc-name">' + esc(parsed.fileName) + '</div><div class="fc-meta">' + fmtNum(parsed.rowCount) + " rows · " + parsed.fields.length + " columns</div>" +
+        '<div class="fc-hash">SHA-256: ' + hashChip(parsed.sha256, false) + '</div></div><button type="button" class="btn btn-sm" id="btnChange_' + which + '">Change file</button></div>' + structureBanner(which);
+    } else {
+      area = '<label class="dropzone" id="dz_' + which + '" for="file_' + which + '" tabindex="0" role="button">' + ICONS.upload +
+        '<span class="dz-main">Click to choose a CSV file</span><span class="dz-sub">or drag and drop</span><span class="dz-note">CSV only · processed locally</span>' +
+        '<input type="file" accept=".csv,text/csv" id="file_' + which + '"></label>';
+    }
+    let preview = "";
+    if (parsed) {
+      preview = '<div class="divider-note">Preview — first ' + Math.min(10, parsed.data.length) + " rows</div>" +
+        '<div class="preview-scroll"><table class="data"><thead><tr>' + parsed.fields.map((c) => "<th>" + esc(c) + "</th>").join("") + "</tr></thead><tbody>" +
+        parsed.data.slice(0, 10).map((row) => "<tr>" + parsed.fields.map((c) => '<td class="mono">' + esc(row[c]) + "</td>").join("") + "</tr>").join("") + "</tbody></table></div>";
+    }
+    return '<label class="field-label" style="display:block;">' + title + '</label><p class="field-hint" style="margin:0 0 12px 0;">' + desc + '</p><div id="uploadArea">' + area + "</div>" + preview +
+      actions({ back: !(WIZ.mode === "recon" && WIZ.step === 1), id: "wizNext" + WIZ.step, disabled: !parsed });
+  }
+
+  /* ----- Step 3: Mapping + comparison key ----- */
+  function mappingColumn(which, title, fields, m) {
+    const sel = (key, label, required) => {
+      const miss = WIZ.missing[which][key];
+      return '<div class="field"><label class="field-label">' + label + (required ? ' <span class="req-mark">*</span>' : ' <span class="faint" style="font-weight:400;">(optional)</span>') + "</label>" +
+        '<select class="mapSelect" data-which="' + which + '" data-field="' + key + '"><option value="">' + (required ? "Select column…" : "Not mapped") + "</option>" +
+        fields.map((f) => '<option value="' + esc(f) + '" ' + (f === m[key] ? "selected" : "") + ">" + esc(f) + "</option>").join("") + "</select>" +
+        (miss ? '<div class="miss-hint">Previously mapped to \u201c' + esc(miss) + "\u201d — not found in this file.</div>" : "") + "</div>";
+    };
+    return '<div class="mapping-col"><h4>' + title + "</h4>" + sel("identity", "Identity field", true) + sel("entitlement", "Entitlement field", true) +
+      sel("account", "Account", false) + sel("application", "Application", false) + sel("description", "Entitlement description", false) + sel("displayName", "User display name", false) + "</div>";
+  }
+  const accountMappedBoth = () => !!(WIZ.mapping.source.account && WIZ.mapping.iga.account);
+  function enforceKey() {
+    if (WIZ.includeAccount && !accountMappedBoth()) { WIZ.includeAccount = false; if (WIZ.savedIncludeAccount) WIZ.keyDowngraded = true; }
+  }
+  function keyPanel() {
+    enforceKey();
+    const ok = accountMappedBoth();
+    return '<div class="checkbox-row ' + (ok ? "" : "disabled") + '"><input type="checkbox" id="keyInclAcct" ' + (WIZ.includeAccount ? "checked" : "") + " " + (ok ? "" : "disabled") + '>' +
+      '<label for="keyInclAcct"><div class="cb-title">Include Account in comparison key</div><div class="cb-desc">' + (ok ? "Matches on identity, account and entitlement together." : "Available once an Account column is mapped in both files.") + "</div></label></div>" +
+      '<p style="margin-top:8px;font-size:13px;">Comparison key: <strong>' + comparisonKeyLabel(WIZ.includeAccount) + "</strong></p>" +
+      (WIZ.keyDowngraded && !WIZ.includeAccount ? '<div class="banner warn">' + ICONS.info + "<span>The saved setup used Account in the comparison key, but the Account column is no longer mapped in both files.</span></div>" : "");
+  }
+  function mappingValid() {
+    const ok = (side) => { const p = sideParsed(side), m = WIZ.mapping[side]; return !!(m.identity && m.entitlement && p.fields.indexOf(m.identity) !== -1 && p.fields.indexOf(m.entitlement) !== -1); };
+    return ok("source") && ok("iga");
+  }
+  function stepMapping() {
+    const changed = ["source", "iga"].filter((s) => WIZ.structure[s] === "changed");
+    return '<label class="field-label" style="margin-bottom:12px;display:block;">Map columns from each file</label>' +
+      (changed.length ? '<div class="banner warn" style="margin:0 0 16px 0;">' + ICONS.info + "<span>" + changed.map((s) => (s === "source" ? "Source" : "IGA") + " file structure has changed.").join(" ") + " Review mappings before continuing.</span></div>" : "") +
+      '<div class="form-grid-2">' + mappingColumn("source", "Source File", WIZ.sourceParsed.fields, WIZ.mapping.source) + mappingColumn("iga", "IGA File", WIZ.igaParsed.fields, WIZ.mapping.iga) + "</div>" +
+      '<h3 class="step-h">Comparison key</h3><div class="option-list" id="keyPanel">' + keyPanel() + "</div>" +
+      actions({ back: true, id: "wizNext3", disabled: !mappingValid() });
+  }
+
+  /* ----- Step 4: Options ----- */
+  function stepOptions() {
+    const n = WIZ.normalization;
+    const row = (key, title, desc) => '<div class="checkbox-row"><input type="checkbox" data-norm="' + key + '" ' + (n[key] ? "checked" : "") + ' id="norm_' + key + '"><label for="norm_' + key + '"><div class="cb-title">' + title + '</div><div class="cb-desc">' + desc + "</div></label></div>";
+    return '<label class="field-label" style="margin-bottom:4px;display:block;">Normalization options</label><p class="field-hint" style="margin:0 0 12px 0;">Applied to values before the comparison key is built.</p>' +
+      '<div class="option-list">' +
+        row("trim", "Trim whitespace", "Removes spaces at the start and end of each value.") +
+        row("caseInsensitive", "Case insensitive comparison", "Treats \u201cAP_Approver\u201d and \u201cAP_APPROVER\u201d as the same value.") +
+        row("dedupeSpaces", "Collapse repeated spaces", "Collapses repeated spaces inside a value into one.") +
+        row("ignoreBlank", "Ignore blank rows", "Skips rows where identity or entitlement is empty.") +
+        row("ignoreDuplicates", "Ignore duplicate identity + entitlement pairs", "Duplicates are collapsed to one relationship for matching. Detected duplicates are always listed under Duplicate.") + "</div>" +
+      '<details class="advanced" ' + ((n.customRules || []).length ? "open" : "") + '><summary>Advanced normalization rules <span class="faint" style="font-weight:400;">— custom find &amp; replace, including regex</span></summary><div class="adv-body">' +
+        '<p class="field-hint" style="margin:0 0 12px 0;">Add substitutions when the source and IGA name things differently — for example stripping an application prefix. Rules run in order, before the options above. Matches that depend on a custom rule are labeled \u201cCustom-rule normalized match\u201d. Nothing else is transformed automatically: identities such as C12345 and E12345 stay distinct unless you add a rule.</p>' +
+        '<div id="rulesPanel">' + rulesPanel() + '</div><div id="rulesPreview" style="margin-top:14px;">' + rulesPreview() + "</div></div></details>" +
+      actions({ back: true, id: "wizNext4" });
+  }
+  function rulesPanel() {
+    const rules = WIZ.normalization.customRules || [];
+    return '<div class="rules-box">' + (rules.length
+      ? '<div class="rule-grid rule-grid-head"><span>Applies to</span><span>Find</span><span>Replace with</span><span>Options</span><span></span></div>' + rules.map(ruleRow).join("")
+      : '<p class="faint" style="margin:2px 0 12px 0;">No custom rules.</p>') +
+      '<button type="button" class="btn btn-sm" id="btnAddRule" style="margin-top:' + (rules.length ? "10px" : "0") + ';">' + ICONS.plus + " Add rule</button></div>";
+  }
+  function ruleRow(r) {
+    return '<div class="rule-grid rule-row"><select class="ruleScope" data-id="' + r.id + '">' + RULE_SCOPES.map((s) => '<option value="' + s.value + '" ' + (s.value === r.scope ? "selected" : "") + ">" + s.label + "</option>").join("") + "</select>" +
+      '<input type="text" class="ruleFind" data-id="' + r.id + '" placeholder="e.g. ORCL_" value="' + esc(r.find) + '"><input type="text" class="ruleReplace" data-id="' + r.id + '" placeholder="(blank removes it)" value="' + esc(r.replace) + '">' +
+      '<div class="rule-toggles"><label><input type="checkbox" class="ruleRegex" data-id="' + r.id + '" ' + (r.useRegex ? "checked" : "") + '> Regex</label><label><input type="checkbox" class="ruleCase" data-id="' + r.id + '" ' + (r.matchCase ? "checked" : "") + '> Match case</label></div>' +
+      '<button type="button" class="btn btn-sm btn-quiet ruleRemove" data-id="' + r.id + '" aria-label="Remove rule" title="Remove rule">' + ICONS.x + '</button><div class="rule-error" id="ruleError_' + r.id + '"></div></div>';
+  }
+  function sampleValues(side, field, limit) {
+    const p = sideParsed(side), col = WIZ.mapping[side][field];
+    if (!p || !col) return [];
+    const seen = {}, out = [];
+    for (let i = 0; i < p.data.length && out.length < limit; i++) { const v = p.data[i][col]; if (!seen[str(v)]) { seen[str(v)] = true; out.push(v); } }
+    return out;
+  }
+  function rulesPreview() {
+    const secs = [["source", "identity", "Source identity"], ["source", "entitlement", "Source entitlement"], ["iga", "identity", "IGA identity"], ["iga", "entitlement", "IGA entitlement"]];
+    let rows = "";
+    secs.forEach(([side, field, label]) => sampleValues(side, field, 2).forEach((raw) => {
+      const out = normalizeValue(raw, WIZ.normalization, { side, field });
+      rows += '<tr><td class="faint">' + label + '</td><td class="mono">' + esc(display(raw)) + '</td><td class="mono" style="' + (str(raw) !== out ? "color:var(--accent);font-weight:600;" : "") + '">' + esc(display(out)) + "</td></tr>";
+    }));
+    if (!rows) return '<p class="faint" style="font-size:12.5px;">Sample values appear once both files are uploaded and mapped.</p>';
+    return '<div class="divider-note">Live preview using values from your files</div><div class="table-wrap no-max"><table class="data"><thead><tr><th>Field</th><th>Original</th><th>After normalization</th></tr></thead><tbody>' + rows + "</tbody></table></div>";
+  }
+  const findRule = (id) => (WIZ.normalization.customRules || []).find((r) => r.id === id);
+  const refreshPreview = () => { const h = qs("#rulesPreview"); if (h) h.innerHTML = rulesPreview(); };
+  function ruleErrorUpdate(rule) { const s = qs("#ruleError_" + rule.id); if (s) { const r = applyOneRule("sample-test-123", rule); s.textContent = r.error ? r.error + " — this rule will be skipped." : ""; } }
+  function bindRules() {
+    qsa(".ruleScope").forEach((el) => { el.onchange = () => { const r = findRule(el.dataset.id); if (r) { r.scope = el.value; refreshPreview(); } }; });
+    qsa(".ruleFind").forEach((el) => { el.oninput = () => { const r = findRule(el.dataset.id); if (r) { r.find = el.value; ruleErrorUpdate(r); refreshPreview(); } }; });
+    qsa(".ruleReplace").forEach((el) => { el.oninput = () => { const r = findRule(el.dataset.id); if (r) { r.replace = el.value; refreshPreview(); } }; });
+    qsa(".ruleRegex").forEach((el) => { el.onchange = () => { const r = findRule(el.dataset.id); if (r) { r.useRegex = el.checked; ruleErrorUpdate(r); refreshPreview(); } }; });
+    qsa(".ruleCase").forEach((el) => { el.onchange = () => { const r = findRule(el.dataset.id); if (r) { r.matchCase = el.checked; refreshPreview(); } }; });
+    qsa(".ruleRemove").forEach((el) => { el.onclick = () => { WIZ.normalization.customRules = WIZ.normalization.customRules.filter((r) => r.id !== el.dataset.id); qs("#rulesPanel").innerHTML = rulesPanel(); bindRules(); refreshPreview(); }; });
+    const add = qs("#btnAddRule");
+    if (add) add.onclick = () => { WIZ.normalization.customRules.push({ id: uid(), scope: "all", find: "", replace: "", useRegex: false, matchCase: false }); qs("#rulesPanel").innerHTML = rulesPanel(); bindRules(); refreshPreview(); };
+  }
+
+  /* ----- Step 5: Review ----- */
+  function mergeTarget() {
+    if (WIZ.reconId) return getRecon(WIZ.reconId);
+    const c = (WIZ.cycle || "").trim().toLowerCase();
+    if (!WIZ.profileId || !c) return null;
+    return listRecons().find((r) => r.profileId === WIZ.profileId && !r.isDemo && (r.cycle || "").trim().toLowerCase() === c) || null;
+  }
+  function fileBlock(label, parsed) {
+    return '<div class="kv-section">' + label + " file</div>" + kvRow("Filename", '<span class="mono">' + esc(parsed.fileName) + "</span>") + kvRow("Row count", '<span class="mono">' + fmtNum(parsed.rowCount) + "</span>") + kvRow("SHA-256", hashChip(parsed.sha256, false));
+  }
+  function stepReview() {
+    const n = WIZ.normalization, rules = n.customRules || [];
+    const target = mergeTarget();
+    const prof = getProfile(WIZ.profileId);
+    let save;
+    if (prof) {
+      save = '<div class="checkbox-row"><input type="checkbox" id="wizSave" ' + (WIZ.saveProfile ? "checked" : "") + '><label for="wizSave"><div class="cb-title">Update saved profile with these settings</div><div class="cb-desc">Updates \u201c' + esc(prof.name) + "\u201d with the mappings, comparison key and normalization used here.</div></label></div>";
+    } else {
+      save = '<div class="checkbox-row"><input type="checkbox" id="wizSave" ' + (WIZ.saveProfile ? "checked" : "") + '><label for="wizSave"><div class="cb-title">Save these settings as an Application Profile</div><div class="cb-desc">Reuse this setup for future certification cycles.</div></label></div>' +
+        '<div id="platWrap" style="' + (WIZ.saveProfile ? "" : "display:none;") + 'padding:0 0 10px 26px;"><label class="field-label" for="wizPlat">IGA platform <span class="faint" style="font-weight:400;">(optional)</span></label><input type="text" id="wizPlat" placeholder="e.g. SailPoint IIQ" value="' + esc(WIZ.igaPlatform) + '"></div>';
+    }
+    return '<label class="field-label" style="display:block;">Review &amp; run</label>' +
+      '<div class="kv-section" style="margin-top:8px;">Reconciliation</div>' + kvRow("Application", esc(WIZ.appName)) + kvRow("Certification cycle", esc(WIZ.cycle || "—")) +
+      kvRow("Comparison key", "<strong>" + comparisonKeyLabel(WIZ.includeAccount) + "</strong>") +
+      fileBlock("Source", WIZ.sourceParsed) + fileBlock("IGA", WIZ.igaParsed) +
+      '<div class="kv-section">Mapping and normalization</div>' + kvRow("Source", mappingSummary(WIZ.mapping.source)) + kvRow("IGA", mappingSummary(WIZ.mapping.iga)) + kvRow("Normalization", esc(normSummary(n))) +
+      (rules.length ? kvRow("Custom rules", rules.map((r) => esc(ruleScopeLabel(r.scope)) + ": \u201c" + esc(r.find) + "\u201d \u2192 \u201c" + esc(r.replace) + "\u201d" + (r.useRegex ? " (regex)" : "")).join("<br>")) : "") +
+      (target ? '<div class="banner info">' + ICONS.info + "<span>This will be added as Run " + (target.runs.length + 1) + " of " + esc(reconTitle(target)) + ".</span></div>" : "") +
+      '<h3 class="step-h">Application profile</h3><div class="option-list">' + save + "</div>" +
+      '<div class="banner">' + ICONS.lock + "<span>" + PRIVACY + "</span></div>" +
+      actions({ back: true, id: "wizRun", label: "Run parity check" });
+  }
+
+  /* ----- Wizard bindings ----- */
+  function captureStep0() {
+    const a = qs("#wizApp"), c = qs("#wizCycle");
+    if (a) WIZ.appName = a.value;
+    if (c) WIZ.cycle = c.value;
+  }
+  async function handleFile(which, file) {
+    try {
+      const [parsed, hash] = await Promise.all([parseCSVFile(file), sha256OfFile(file)]);
+      parsed.fileName = file.name; parsed.sha256 = hash;
+      if (which === "source") WIZ.sourceParsed = parsed; else WIZ.igaParsed = parsed;
+      applyConfigToSide(which);
+      render();
+    } catch (err) { console.error(err); alert("Could not read that CSV file. Please check the file and try again."); }
+  }
+  function bindWizard() {
+    const back = qs("#wizBack");
+    if (back) back.onclick = () => { WIZ.step--; render(); };
+    if (WIZ.step === 0) {
+      qsa("[data-profile]").forEach((b) => {
+        b.onclick = () => {
+          captureStep0();
+          const id = b.dataset.profile;
+          if (id === "__new") { resetToScratch(WIZ); WIZ.intent = "new"; WIZ.saveProfile = true; }
+          else if (id) applyProfile(WIZ, getProfile(id));
+          else { resetToScratch(WIZ); WIZ.intent = "scratch"; WIZ.saveProfile = false; }
+          ["source", "iga"].forEach(applyConfigToSide);
+          render();
+        };
+      });
+      const next = qs("#wizNext0");
+      next.onclick = () => {
+        captureStep0();
+        if (!WIZ.appName.trim()) { const a = qs("#wizApp"); if (a) { a.focus(); a.style.borderColor = "var(--danger)"; } return; }
+        WIZ.appName = WIZ.appName.trim(); WIZ.cycle = WIZ.cycle.trim(); WIZ.step = 1; render();
+      };
+    }
+    if (WIZ.step === 1 || WIZ.step === 2) {
+      const which = WIZ.step === 1 ? "source" : "iga";
+      const input = qs("#file_" + which), dz = qs("#dz_" + which);
+      if (input) input.onchange = () => { if (input.files && input.files[0]) handleFile(which, input.files[0]); };
+      if (dz) {
+        dz.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); input.click(); } };
+        dz.ondragover = (e) => { e.preventDefault(); dz.classList.add("drag"); };
+        dz.ondragleave = () => dz.classList.remove("drag");
+        dz.ondrop = (e) => { e.preventDefault(); dz.classList.remove("drag"); const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]; if (f) handleFile(which, f); };
+      }
+      const change = qs("#btnChange_" + which);
+      if (change) change.onclick = () => { if (which === "source") WIZ.sourceParsed = null; else WIZ.igaParsed = null; WIZ.structure[which] = null; WIZ.missing[which] = {}; render(); };
+      qs("#wizNext" + WIZ.step).onclick = () => { WIZ.step++; render(); };
+    }
+    if (WIZ.step === 3) {
+      const refresh = () => {
+        const kp = qs("#keyPanel"); kp.innerHTML = keyPanel(); bindKey();
+        qs("#wizNext3").disabled = !mappingValid();
+      };
+      const bindKey = () => { const cb = qs("#keyInclAcct"); if (cb) cb.onchange = () => { WIZ.includeAccount = cb.checked; refresh(); }; };
+      qsa(".mapSelect").forEach((s) => { s.onchange = () => { WIZ.mapping[s.dataset.which][s.dataset.field] = s.value; delete WIZ.missing[s.dataset.which][s.dataset.field]; refresh(); }; });
+      bindKey();
+      qs("#wizNext3").onclick = () => { enforceKey(); WIZ.step = 4; render(); };
+    }
+    if (WIZ.step === 4) {
+      qsa("[data-norm]").forEach((cb) => { cb.onchange = () => { WIZ.normalization[cb.dataset.norm] = cb.checked; refreshPreview(); }; });
+      bindRules();
+      qs("#wizNext4").onclick = () => { WIZ.step = 5; render(); };
+    }
+    if (WIZ.step === 5) {
+      const save = qs("#wizSave"), wrap = qs("#platWrap"), plat = qs("#wizPlat");
+      if (save) save.onchange = () => { WIZ.saveProfile = save.checked; if (wrap) wrap.style.display = save.checked ? "" : "none"; };
+      if (plat) plat.oninput = () => { WIZ.igaPlatform = plat.value; };
+      qs("#wizRun").onclick = executeRun;
+    }
+  }
+
+  function executeRun() {
+    enforceKey();
+    const includeAccount = WIZ.includeAccount && accountMappedBoth();
+    const result = runComparison(WIZ.sourceParsed.data, WIZ.igaParsed.data, WIZ.mapping, WIZ.normalization, includeAccount);
+    const now = new Date().toISOString();
+    let recon = mergeTarget();
+    if (!recon) {
+      recon = { id: uid(), name: WIZ.appName, cycle: WIZ.cycle || "", profileId: null, createdAt: now, runs: [] };
+      STATE.reconciliations[recon.id] = recon;
+    }
+    recon.lastMapping = clone(WIZ.mapping); recon.lastIncludeAccount = result.includeAccount; recon.lastNormalization = clone(WIZ.normalization);
+    recon.expectedSourceHeaders = WIZ.sourceParsed.fields.slice(); recon.expectedIgaHeaders = WIZ.igaParsed.fields.slice();
+
+    let prof = getProfile(WIZ.profileId);
+    if (WIZ.saveProfile) {
+      if (!prof) { prof = { id: uid(), name: WIZ.appName, createdAt: now }; STATE.profiles[prof.id] = prof; prof.igaPlatform = (WIZ.igaPlatform || "").trim(); }
+      prof.mapping = clone(WIZ.mapping); prof.includeAccount = result.includeAccount; prof.normalization = clone(WIZ.normalization);
+      prof.expectedSourceHeaders = WIZ.sourceParsed.fields.slice(); prof.expectedIgaHeaders = WIZ.igaParsed.fields.slice(); prof.updatedAt = now;
+    }
+    if (prof) { if (WIZ.cycle) prof.lastCycle = WIZ.cycle; recon.profileId = prof.id; }
+
+    pushRun(recon, {
+      sourceFileName: WIZ.sourceParsed.fileName, igaFileName: WIZ.igaParsed.fileName, sourceRowCount: WIZ.sourceParsed.rowCount, igaRowCount: WIZ.igaParsed.rowCount,
+      sourceFileHash: WIZ.sourceParsed.sha256, igaFileHash: WIZ.igaParsed.sha256, normalization: clone(WIZ.normalization)
+    }, result, now);
+    saveState();
+    const runNumber = recon.runs.length;
+    WIZ = null;
+    navigate("recon/" + recon.id + "/run/" + runNumber);
+  }
+
+  /* ============================== RECONCILIATION DETAIL ============================== */
+  function renderReconDetail(recon) {
+    const trend = recon.runs.map(trueMismatchCount);
+    const trendHtml = trend.length
+      ? '<div class="trend-chain">' + trend.map((v, i) => (i ? '<span class="trend-arrow">\u2192</span>' : "") + '<span class="trend-node ' + (v === 0 ? "zero" : "") + '">' + v + "</span>").join("") + "</div>"
+      : '<span class="faint">No runs yet</span>';
+    const rows = recon.runs.slice().reverse().map((run) =>
+      '<a class="list-row" href="#/recon/' + recon.id + "/run/" + run.runNumber + '"><div><div class="lr-name">Run ' + run.runNumber + '</div><div class="faint" style="font-size:12px;">' + fmtDateTime(run.timestamp) + "</div></div>" +
+      '<div class="mono">' + pctOrDash(sourceCompletenessValue(run)) + '</div><div class="mono">' + pctOrDash(igaAlignmentValue(run)) + '</div><div class="mono">' + fmtNum(trueMismatchCount(run)) + "</div>" +
+      '<div class="mono">' + fmtNum(Math.max(run.sourceRelationships, run.igaRelationships)) + "</div><div>" + statusBadge(runStatus(run)) + '</div><div class="chev">' + ICONS.chevron + "</div></a>").join("");
+    const hdr = '<div class="list-row list-head">' + ["Run", "Completeness", "Alignment", "Exceptions", "Relationships", "Status"].map((h) => '<div class="lr-label">' + h + "</div>").join("") + "<div></div></div>";
+    const last = latestRun(recon);
+    const prof = getProfile(recon.profileId);
+    return '<div class="topbar"><div><div class="crumb"><a href="#/reconciliations">Reconciliations</a> / ' + esc(reconTitle(recon)) + '</div><div class="page-title">' + esc(reconTitle(recon)) + (recon.isDemo ? ' <span class="tag-demo">Demo</span>' : "") + "</div>" +
+      '<div class="page-sub">' + (last ? "Comparison key: " + comparisonKeyLabel(last.includeAccount) : "") + (prof ? ' · Profile: <a href="#/application/' + prof.id + '">' + esc(prof.name) + "</a>" : "") + "</div></div>" +
+      '<a class="btn btn-primary" href="#/new/recon/' + recon.id + '">Run New Comparison</a></div>' +
+      '<div class="content"><div class="card"><div class="card-title">Exception trend across runs</div><p class="faint" style="font-size:12px;margin:-6px 0 12px 0;">Missing from IGA + Missing from Source only. Duplicates and formatting differences are tracked separately.</p>' + trendHtml + "</div>" +
+      '<div class="section"><div class="section-head"><h2 class="section-title">Run history</h2></div><div class="surface">' + (rows ? hdr + rows : '<div class="table-empty">No runs recorded yet.</div>') + "</div></div></div>";
+  }
+
+  /* ============================== RUN RESULTS ============================== */
+  let EXC_FILTER = "all", EXC_SEARCH = "";
+  const EXC_TYPES = ["Missing from IGA", "Missing from Source", "Duplicate", "Formatting / normalized match", "Custom-rule normalized match"];
+  const TYPE_TONE = { "Missing from IGA": "warning", "Missing from Source": "warning", "Duplicate": "purple", "Formatting / normalized match": "neutral", "Custom-rule normalized match": "info" };
+
+  function statusBanner(run) {
+    const a = run.missingFromIgaCount || 0, b = run.missingFromSourceCount || 0;
+    const d = run.duplicateCount || 0, f = formattingCount(run);
+    const notes = [];
+    if (d) notes.push(fmtNum(d) + " duplicate " + plural(d, "relationship", "relationships"));
+    if (f) notes.push(fmtNum(f) + " formatting-only " + plural(f, "match", "matches"));
+    const note = notes.length ? '<div class="sb-note">' + notes.join(" and ") + " " + (notes.length === 1 ? plural(d || f, "is", "are") : "are") + " also listed for review.<br>These do not affect parity.</div>" : "";
+    if (!a && !b) {
+      return '<div class="status-banner in"><span class="sb-icon">' + ICONS.okCircle + '</span><div><div class="sb-title">Parity achieved</div><div class="sb-body">Source and IGA populations are fully reconciled.</div>' + note + "</div></div>";
+    }
+    let msg;
+    if (a && b) msg = fmtNum(a) + " " + plural(a, "relationship is", "relationships are") + " missing from IGA and " + fmtNum(b) + " " + plural(b, "is", "are") + " missing from the source.";
+    else if (a) msg = fmtNum(a) + " " + plural(a, "relationship is", "relationships are") + " missing from IGA.";
+    else msg = fmtNum(b) + " " + plural(b, "relationship is", "relationships are") + " missing from the source.";
+    return '<div class="status-banner out"><span class="sb-icon">' + ICONS.warnTri + '</span><div><div class="sb-title">Out of parity</div><div class="sb-body">' + msg + "</div>" + note + "</div></div>";
+  }
+  function renderRunResults(recon, n) {
+    const run = recon.runs.find((r) => r.runNumber === n);
+    if (!run) return notFound("Run not found.", "#/recon/" + recon.id);
+    EXC_FILTER = "all"; EXC_SEARCH = "";
+    const dup = run.duplicateCount || 0;
+    const counts = { all: run.exceptions.length };
+    EXC_TYPES.forEach((t) => { counts[t] = run.exceptions.filter((e) => e.exceptionType === t).length; });
+    const chips = ["all"].concat(EXC_TYPES).map((t) => '<button type="button" class="chip-filter ' + (t === "all" ? "active" : "") + '" data-exc-filter="' + esc(t) + '">' + (t === "all" ? "All" : t) + " (" + counts[t] + ")</button>").join("");
+    return (
+      '<div class="topbar"><div><div class="crumb"><a href="#/reconciliations">Reconciliations</a> / <a href="#/recon/' + recon.id + '">' + esc(reconTitle(recon)) + "</a> / Run " + run.runNumber + '</div>' +
+        '<div class="page-title">' + esc(reconTitle(recon)) + (recon.isDemo ? ' <span class="tag-demo">Demo</span>' : "") + '</div><div class="page-sub">Run ' + run.runNumber + " · " + fmtDate(run.timestamp) + " · Comparison key: " + comparisonKeyLabel(run.includeAccount) + "</div></div>" +
+        '<div class="btn-row"><a class="btn" href="#/recon/' + recon.id + "/run/" + run.runNumber + '/evidence">Evidence Summary</a><a class="btn btn-primary" href="#/new/recon/' + recon.id + '">Run New Comparison</a></div></div>' +
+      '<div class="content">' + statusBanner(run) +
+        '<div class="metric-grid" id="metricGrid">' +
+          metric("Source Relationships", fmtNum(run.sourceRelationships)) + metric("IGA Relationships", fmtNum(run.igaRelationships)) +
+          metric("Exact Matches", fmtNum(run.matchedCount), "success") + metric("Duplicates", fmtNum(dup), dup > 0 ? "purple" : "") +
+          metric("Missing from IGA", fmtNum(run.missingFromIgaCount), run.missingFromIgaCount > 0 ? "warning" : "") + metric("Missing from Source", fmtNum(run.missingFromSourceCount), run.missingFromSourceCount > 0 ? "warning" : "") +
+          metric("Source Completeness", pctOrDash(sourceCompletenessValue(run)), "accent", "Exact matches \u00f7 source relationships") + metric("IGA Population Alignment", pctOrDash(igaAlignmentValue(run)), "accent", "Exact matches \u00f7 IGA relationships") +
+        "</div>" +
+        '<div class="section"><div class="section-head"><h2 class="section-title">Exceptions</h2></div><div class="surface">' +
+          '<div class="toolbar"><div class="filter-group" id="filterGroup">' + chips + "</div>" +
+            '<div class="btn-row"><div class="search-input-wrap">' + ICONS.search + '<input type="search" id="excSearch" placeholder="Search identity or entitlement" aria-label="Search exceptions"></div><button type="button" class="btn btn-sm" id="btnExport">Export CSV</button></div></div>' +
+          '<div id="exceptionTableHost">' + exceptionTable(run) + "</div></div></div></div>"
+    );
+  }
+  function filteredExceptions(run) {
+    const s = EXC_SEARCH.toLowerCase();
+    return run.exceptions.filter((e) => (EXC_FILTER === "all" || e.exceptionType === EXC_FILTER) &&
+      (!s || str(e.identity).toLowerCase().includes(s) || str(e.entitlement).toLowerCase().includes(s) || str(e.account).toLowerCase().includes(s)));
+  }
+  function statusCell(t) {
+    if (t === "Absent") return '<span class="faint">Absent</span>';
+    if (t.indexOf("(\u00d7") !== -1) return '<span class="dup-count">' + esc(t) + "</span>";
+    return esc(t);
+  }
+  function exceptionTable(run) {
+    const rows = filteredExceptions(run);
+    if (!rows.length) return '<div class="table-wrap flat"><div class="table-empty">No exceptions match this filter.</div></div>';
+    return '<div class="table-wrap flat"><table class="data"><thead><tr><th>Identity</th><th>Entitlement</th><th>Source status</th><th>IGA status</th><th>Exception type</th></tr></thead><tbody>' +
+      rows.map((e) => '<tr><td class="mono">' + esc(e.identity) + (run.includeAccount && e.account != null ? '<span class="cell-detail">Account: ' + esc(e.account) + "</span>" : "") + '</td><td class="mono">' + esc(e.entitlement) + "</td><td>" + statusCell(e.sourceStatus) + "</td><td>" + statusCell(e.igaStatus) + '</td><td><span class="badge badge-' + (TYPE_TONE[e.exceptionType] || "neutral") + '">' + esc(e.exceptionType) + "</span></td></tr>").join("") +
+      "</tbody></table></div>";
+  }
+  function bindRunResults(recon, n) {
+    const run = recon.runs.find((r) => r.runNumber === n);
+    if (!run) return;
+    const host = qs("#exceptionTableHost");
+    qsa("[data-exc-filter]").forEach((b) => {
+      b.onclick = () => {
+        EXC_FILTER = b.dataset.excFilter;
+        qsa("[data-exc-filter]").forEach((x) => x.classList.toggle("active", x === b));
+        host.innerHTML = exceptionTable(run);
+      };
+    });
+    qs("#excSearch").oninput = (e) => { EXC_SEARCH = e.target.value; host.innerHTML = exceptionTable(run); };
+    qs("#btnExport").onclick = () => {
+      const rows = filteredExceptions(run).map((e) => {
+        const o = { Identity: e.identity };
+        if (run.includeAccount) o.Account = e.account;
+        o.Entitlement = e.entitlement; o["Source Status"] = e.sourceStatus; o["IGA Status"] = e.igaStatus; o["Exception Type"] = e.exceptionType;
+        return o;
+      });
+      downloadCSV(reconTitle(recon).replace(/[^a-z0-9]+/gi, "_").toLowerCase() + "_run" + run.runNumber + "_exceptions.csv", rows);
+    };
+  }
+
+  /* ============================== EVIDENCE SUMMARY ============================== */
+  function renderEvidence(recon, n) {
+    const run = recon.runs.find((r) => r.runNumber === n);
+    if (!run) return notFound("Run not found.", "#/recon/" + recon.id);
+    const st = runStatus(run), norm = run.normalization || {};
+    const a = run.missingFromIgaCount || 0, b = run.missingFromSourceCount || 0;
+    const sub = st.inParity ? "Source and IGA populations are fully reconciled." : (a ? fmtNum(a) + " missing from IGA" : "") + (a && b ? " · " : "") + (b ? fmtNum(b) + " missing from source" : "");
+    const flags = [["trim", "Trim whitespace"], ["caseInsensitive", "Case insensitive comparison"], ["dedupeSpaces", "Collapse repeated spaces"], ["ignoreBlank", "Ignore blank rows"], ["ignoreDuplicates", "Ignore duplicate identity + entitlement pairs"]]
+      .map((p) => kvRow(p[1], norm[p[0]] ? "Enabled" : "Not enabled")).join("");
+    const rules = norm.customRules || [];
+    const rulesHtml = kvRow("Custom normalization rules", rules.length ? rules.map((r) => esc(ruleScopeLabel(r.scope)) + ": \u201c" + esc(r.find) + "\u201d \u2192 \u201c" + esc(r.replace) + "\u201d" + (r.useRegex ? " (regex)" : "") + (r.matchCase ? ", match case" : "")).join("<br>") : "None used");
+    const mono = (v) => '<span class="mono">' + v + "</span>";
+    const file = (label, name, rows, hash) => '<div class="kv-section">' + label + "</div>" + kvRow("Filename", mono(esc(name))) + kvRow("Row count", mono(fmtNum(rows))) + kvRow("SHA-256", hashChip(hash, true));
+    const statusVal = '<span class="badge badge-' + st.tone + '"><span class="dot"></span>' + (st.inParity ? "Parity achieved" : "Out of parity") + '</span><span class="ev-status-sub">' + sub + "</span>";
+    return (
+      '<div class="topbar no-print"><div><div class="crumb"><a href="#/recon/' + recon.id + "/run/" + run.runNumber + '">Run ' + run.runNumber + '</a> / Evidence Summary</div><div class="page-title">Evidence Summary</div></div>' +
+        '<button type="button" class="btn btn-primary" id="btnPrint">Export Evidence Summary</button></div>' +
+      '<div class="content"><div class="evidence-doc">' +
+        '<div class="ev-head"><div class="ev-brand">' + logo(34) + '<div><div class="b1">Parity</div><div class="b2">Access Reconciliation</div></div></div><div class="ev-stamp">Generated<br><span class="mono">' + fmtDateTime(new Date().toISOString()) + "</span></div></div>" +
+        '<h1 class="ev-title">Evidence Summary</h1><p class="ev-lede">Source-versus-IGA population reconciliation record</p>' +
+        '<div class="kv-section">Reconciliation Details</div>' + kvRow("Application", esc(recon.name)) + kvRow("Certification cycle", esc(recon.cycle || "—")) + kvRow("Run", mono(run.runNumber)) + kvRow("Run timestamp", mono(fmtDateTime(run.timestamp))) +
+        kvRow("Comparison key", "<strong>" + comparisonKeyLabel(run.includeAccount) + "</strong>") + kvRow("Parity status", statusVal) +
+        file("Source File", run.sourceFileName, run.sourceRowCount, run.sourceFileHash) + file("IGA File", run.igaFileName, run.igaRowCount, run.igaFileHash) +
+        '<div class="kv-section">Results</div>' + kvRow("Source relationships", mono(fmtNum(run.sourceRelationships))) + kvRow("IGA relationships", mono(fmtNum(run.igaRelationships))) + kvRow("Exact matches", mono(fmtNum(run.matchedCount))) +
+        kvRow("Duplicates", mono(fmtNum(run.duplicateCount))) + kvRow("Missing from IGA", mono(fmtNum(a))) + kvRow("Missing from Source", mono(fmtNum(b))) +
+        kvRow("Source Completeness", mono(pctOrDash(sourceCompletenessValue(run)))) + kvRow("IGA Population Alignment", mono(pctOrDash(igaAlignmentValue(run)))) +
+        '<div class="kv-section">Normalization</div>' + flags + rulesHtml +
+        '<div class="ev-foot">' + PRIVACY + "</div></div></div>"
+    );
+  }
+  function bindEvidence() { const b = qs("#btnPrint"); if (b) b.onclick = () => window.print(); }
+
+  /* ============================== SETTINGS ============================== */
+  function renderSettings() {
+    const rc = listRecons().length, pc = listProfiles().length;
+    return '<div class="topbar"><div class="page-title">Settings</div></div><div class="content content-narrow">' +
+      '<div class="card"><div class="card-title">Privacy</div><div class="banner" style="margin-top:0;">' + ICONS.lock + "<span>" + PRIVACY + "</span></div></div>" +
+      '<div class="card"><div class="card-title">Local data</div><p class="muted" style="margin-bottom:14px;">This browser currently stores ' + rc + " " + plural(rc, "reconciliation", "reconciliations") + " and " + pc + " application " + plural(pc, "profile", "profiles") + '.</p><button type="button" class="btn btn-danger" id="btnClear">Clear all local data</button></div></div>';
+  }
+  function bindSettings() {
+    const b = qs("#btnClear");
+    if (b) b.onclick = () => { if (confirm("This permanently deletes all reconciliations, run history and application profiles stored in this browser. Continue?")) { STATE = emptyState(); saveState(); navigate("app"); } };
+  }
+
+  /* ============================== TEST HOOK (inert unless a harness defines it) ============================== */
+  if (window.__PARITY_TEST__) Object.assign(window.__PARITY_TEST__, { runComparison, sha256OfText, sha256OfFile, DEFAULT_NORM, cloneNorm, getState: () => STATE });
+
+  render();
+})();
+</script>
+</body>
+</html>
