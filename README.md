@@ -4,7 +4,7 @@ It is designed to help IAM and GRC teams validate completeness and accuracy befo
 
 Try it:
 1. Open index.html locally in Chrome, or use the hosted GitHub Pages version.
-2. Use the files in /sample-data/.
+2. Use source_acl.csv and iga_staging_report.csv from this repository.
 3. Upload source_acl.csv as the Source file.
 4. Upload iga_staging_report.csv as the IGA file.
 5. Map:
